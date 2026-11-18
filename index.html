@@ -149,6 +149,14 @@ body>div[style*="bottom:24px"]{animation:toast .45s cubic-bezier(.2,.9,.3,1.3) b
 h3{position:relative;padding-left:12px}h3::before{content:'';position:absolute;left:0;top:15%;bottom:15%;width:4px;border-radius:4px;background:linear-gradient(var(--bl),var(--bl2))}
 .mb h3,.lgb h3{padding-left:0}.mb h3::before,.lgb h3::before{display:none}
 @media(max-width:720px){.hero .clk{display:none}.hero h1{font-size:23px}.hero{padding:22px 20px}#tg{white-space:nowrap;margin:0 3px}}
+
+/* catalogs */
+.cg{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.cat{display:flex;flex-direction:column;gap:6px}
+.cat .ci{font-size:30px;line-height:1}
+.cat b{word-break:break-word}
+.cat .ca{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto;padding-top:10px}
+.cat .ca button{padding:8px 12px}
 </style><script>
 /* Download fix: defined first, so the older code below it is skipped */
 window.claude={use:async n=>n==='downloads'?{save:async({filename,data})=>{
@@ -432,6 +440,41 @@ function upw2(i){const pw=$('#npw').value;if(pw.length<6){toast('Use at least 6 
 function udel(i){const u=USERS[i];if(u.u===CU.u){toast('You cannot remove the account you are signed in with');return}
 if(u.r!=='Engineer'&&USERS.filter(x=>x.r!=='Engineer').length<2){toast('Keep at least one admin account');return}
 ask('Remove user '+e(u.u)+'?',()=>{USERS.splice(i,1);saveU();go('settings')})}
+/* ===== CATALOGS: everyone signed in can view / download / share; only admins can upload & delete ===== */
+const CDB=(()=>{let p;const o=()=>p||(p=new Promise((res,rej)=>{const r=indexedDB.open('acme_catalogs',1);r.onupgradeneeded=()=>{r.result.createObjectStore('m',{keyPath:'id'});r.result.createObjectStore('f')};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}));
+const run=async(st,mode,fn)=>{const d=await o();return new Promise((res,rej)=>{const tx=d.transaction(st,mode);let q;tx.oncomplete=()=>res(q&&q.result);tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error||new Error('Storage full or blocked'));q=fn(tx)})};
+return{list:()=>run('m','readonly',tx=>tx.objectStore('m').getAll()),file:id=>run('f','readonly',tx=>tx.objectStore('f').get(id)),
+put:(m,f)=>run(['m','f'],'readwrite',tx=>{tx.objectStore('m').put(m);tx.objectStore('f').put(f,m.id)}),
+del:id=>run(['m','f'],'readwrite',tx=>{tx.objectStore('m').delete(id);tx.objectStore('f').delete(id)})}})();
+let CQ='',CL=[];const CB={};
+const csz=n=>n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';
+const cico=m=>{const x=(m.name.split('.').pop()||'').toLowerCase();return x=='pdf'?'📕':['xls','xlsx','csv'].includes(x)?'📗':['doc','docx'].includes(x)?'📘':['ppt','pptx'].includes(x)?'📙':['jpg','jpeg','png','webp'].includes(x)?'🖼️':['zip','rar'].includes(x)?'🗜️':'📄'};
+V.catalogs=async()=>{const adm=!ME().eng;
+$('#m').innerHTML=`<h2>Catalogs</h2><div class="bar"><input id="cq" placeholder="Search catalogs…" value="${e(CQ)}" oninput="CQ=this.value;crows()">${adm?'<button onclick="cup()">⬆ Upload catalog</button>':''}</div><div class="g cg" id="cl"></div><p class="k" id="cc"></p>`;
+try{CL=await CDB.list()}catch(x){CL=[];toast('Catalog storage is not available in this browser')}crows()};
+function crows(){const adm=!ME().eng,q=CQ.toLowerCase(),r=CL.filter(m=>(m.title+' '+m.name).toLowerCase().includes(q)).sort((a,b)=>b.at-a.at),box=$('#cl');if(!box)return;
+box.innerHTML=r.map(m=>`<div class="c cat"><div class="ci">${cico(m)}</div><b>${e(m.title)}</b><div class="k">${csz(m.size)}<br>Added ${fd(m.date)} by ${e(m.by)}</div><div class="ca"><button onclick="cdl('${m.id}')">⬇ Download</button><button class="b2" onclick="csh('${m.id}')">📤 Share</button>${adm?`<button class="bd" onclick="cdel('${m.id}')">🗑 Delete</button>`:''}</div></div>`).join('');
+$('#cc').textContent=r.length?r.length+' catalog'+(r.length>1?'s':''):(CL.length?'No catalogs match your search.':(adm?'No catalogs yet. Tap “Upload catalog” to add the first one.':'No catalogs have been uploaded yet.'))}
+let CS=[];
+function cup(){if(ME().eng)return;CS=[];
+$('#mo').innerHTML=`<div class="mo"><div class="mb" style="max-width:480px"><h3>Upload catalogs</h3><p class="k">The file name is used as the catalog name (max 40 MB each).</p><input id="cf" type="file" multiple onchange="cpick(this)"><div id="cs" style="margin-top:10px"></div><p><button id="cgo" onclick="cup2()">Upload</button> <button class="b2" onclick="$('#mo').innerHTML=''">Cancel</button></p></div></div>`;cshow()}
+function cpick(inp){for(const f of inp.files){if(f.size>40*1048576){toast(f.name+' is larger than 40 MB – not added');continue}if(!CS.some(x=>x.name==f.name&&x.size==f.size))CS.push(f)}inp.value='';cshow()}
+function cshow(){const b=$('#cs');if(!b)return;b.innerHTML=CS.map((f,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd)"><span style="flex:1;min-width:0;word-break:break-word">${e(f.name)} <span class="k">(${csz(f.size)})</span></span><button class="bd" onclick="CS.splice(${i},1);cshow()" title="Remove this file">✕</button></div>`).join('')||'<div class="k">No files selected yet.</div>';const g=$('#cgo');if(g)g.textContent=CS.length?'Upload '+CS.length+' file'+(CS.length>1?'s':''):'Upload'}
+async function cup2(){if(ME().eng){toast('Only admins can upload catalogs');return}
+if(!CS.length){toast('Choose a file first');return}let ok=0;
+for(const f of CS){const m={id:'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,7),title:f.name.replace(/\.[^.]+$/,''),brand:'',name:f.name,type:f.type,size:f.size,date:today(),at:Date.now(),by:CU.u};
+try{await CDB.put(m,f);ok++}catch(x){toast('Could not save '+f.name+' – device storage may be full');break}}
+CS=[];$('#mo').innerHTML='';if(ok)toast(ok+' catalog'+(ok>1?'s':'')+' uploaded');V.catalogs()}
+async function cget(id){if(!CB[id])CB[id]=await CDB.file(id);return CB[id]}
+async function cdl(id){const m=CL.find(x=>x.id==id),f=await cget(id);if(!m||!f){toast('File not found');return}
+const d=await window.claude.use('downloads');await d.save({filename:m.name,data:f})}
+async function csh(id){const m=CL.find(x=>x.id==id);if(!m)return;const warm=!!CB[id];const b=await cget(id);if(!b){toast('File not found');return}
+const f=new File([b],m.name,{type:m.type||b.type||'application/octet-stream'});
+if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f],title:m.title,text:m.title+' – ACME Switchgears'})}catch(x){if(x&&x.name==='AbortError')return;if(x&&x.name==='NotAllowedError'&&!warm){toast('File is ready – tap Share once more');return}toast('Sharing failed – downloading instead');cdl(id)}}
+else{toast('Sharing is not supported on this browser – downloading so you can attach it in WhatsApp or email');cdl(id)}}
+function cdel(id){if(ME().eng)return;const m=CL.find(x=>x.id==id);if(!m)return;ask('Delete catalog “'+e(m.title)+'”? This cannot be undone.',async()=>{if(ME().eng)return;await CDB.del(id);delete CB[id];V.catalogs()})}
+(()=>{const r=document.querySelector('#nav a[data-k=reports]');if(r&&!document.querySelector('#nav a[data-k=catalogs]'))r.insertAdjacentHTML('beforebegin','<a data-k="catalogs" onclick="go(\'catalogs\')">📚 Catalogs</a>')})();
+
 boot();
 </script><script>/* visual effects only: dashboard hero, count-up, tilt, ripple, theme toggle, avatar */
 (function(){
