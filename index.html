@@ -172,7 +172,12 @@ window.addEventListener('unhandledrejection',ev=>{if(typeof toast==='function')t
 window.addEventListener('error',ev=>{if(typeof toast==='function')toast('Error: '+ev.message)});
 </script><script>/* Standalone mode: browser download instead of the claude.ai downloads capability */
 window.claude=window.claude||{use:async n=>n==='downloads'?{save:async({filename,data})=>{const b=data instanceof Blob?data:new Blob([data]);const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);return{status:'saved'}}}:null};</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script></head><body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+</head><body>
 <div class="app"><nav class="sb" id="nav"><h1><img id="sbl" alt="ACME Switchgears" style="display:block;width:100%;max-width:170px;height:auto;margin:0 0 8px;object-fit:contain"><small>CRM &amp; ERP</small></h1></nav><main id="m"></main></div><div id="pr"></div><div id="mo"></div>
 <script>
 const CO={n:'ACME SWITCHGEARS',a:'107, Angappa Naicken Street, George Town, Chennai, Tamil Nadu – 600001',g:'33AASFA3221F1ZU',p:'+91-44-42061113 / 42061114 / 43851115',e:'acmeswitchgears@ymail.com'};
