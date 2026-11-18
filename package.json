@@ -1,0 +1,23 @@
+{
+  "name": "primary",
+  "version": "1.0.0",
+  "description": "Single-file CRM & ERP (leads, products, quotations, invoices, reports) that runs entirely in the browser.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/digitalmarketinghracme-cmd/crmacmeswtchgears.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/digitalmarketinghracme-cmd/crmacmeswtchgears/issues"
+  },
+  "homepage": "https://github.com/digitalmarketinghracme-cmd/crmacmeswtchgears#readme",
+  "dependencies": {
+    "@vercel/analytics": "^2.0.1"
+  }
+}
