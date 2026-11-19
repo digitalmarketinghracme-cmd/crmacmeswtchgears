@@ -1,3 +1,4 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>ACME Switchgears CRM</title><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#f2f4fb;--card:#fff;--tx:#18203a;--mu:#6a7391;--bd:#e4e8f2;--nv:#0b1f3f;--bl:#2f6bff;--bl2:#7a4bff;--ok:#12a05c;--wn:#d98a00;--er:#d6403a;--sh:0 1px 2px rgba(16,24,40,.05),0 10px 30px rgba(40,60,120,.08);--glow:0 10px 30px rgba(47,107,255,.25);box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -441,38 +442,38 @@ function udel(i){const u=USERS[i];if(u.u===CU.u){toast('You cannot remove the ac
 if(u.r!=='Engineer'&&USERS.filter(x=>x.r!=='Engineer').length<2){toast('Keep at least one admin account');return}
 ask('Remove user '+e(u.u)+'?',()=>{USERS.splice(i,1);saveU();go('settings')})}
 /* ===== CATALOGS: everyone signed in can view / download / share; only admins can upload & delete ===== */
-const CDB=(()=>{let p;const o=()=>p||(p=new Promise((res,rej)=>{const r=indexedDB.open('acme_catalogs',1);r.onupgradeneeded=()=>{r.result.createObjectStore('m',{keyPath:'id'});r.result.createObjectStore('f')};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}));
-const run=async(st,mode,fn)=>{const d=await o();return new Promise((res,rej)=>{const tx=d.transaction(st,mode);let q;tx.oncomplete=()=>res(q&&q.result);tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error||new Error('Storage full or blocked'));q=fn(tx)})};
-return{list:()=>run('m','readonly',tx=>tx.objectStore('m').getAll()),file:id=>run('f','readonly',tx=>tx.objectStore('f').get(id)),
-put:(m,f)=>run(['m','f'],'readwrite',tx=>{tx.objectStore('m').put(m);tx.objectStore('f').put(f,m.id)}),
-del:id=>run(['m','f'],'readwrite',tx=>{tx.objectStore('m').delete(id);tx.objectStore('f').delete(id)})}})();
+const CDB=(()=>{let d;const col=async()=>{if(!d)d=await window.claude.use('db');if(!d)throw new Error('Shared storage is not available');return d.collection('catalogs')};
+return{list:async()=>{const s=await(await col()).get();return s.docs.map(x=>x.data())},
+file:async m=>{const r=await fetch('/_blob/'+m.aid);if(!r.ok)throw new Error('Download failed');return new Blob([await r.blob()],{type:m.type||'application/pdf'})},
+put:async(m,f)=>{const as=await window.claude.use('assets');if(!as)throw new Error('File storage is not available. Open the page from your claude.ai artifact link while signed in as its owner or an editor.');let r;try{r=await as.upload(f)}catch(x){throw new Error('File upload refused ('+((x&&x.code)||'error')+'): '+((x&&x.message)||''))}m.aid=r.id;try{await(await col()).doc(m.id).set(m)}catch(x){try{await as.delete(r.id)}catch(y){}throw new Error('Saving the catalog entry was refused ('+((x&&x.code)||'error')+'): '+((x&&x.message)||'')+'. Writing needs editor access to the page.')}},
+del:async m=>{const c=await col();await c.doc(m.id).delete();try{const as=await window.claude.use('assets');if(as&&m.aid)await as.delete(m.aid)}catch(x){}}}})();
 let CQ='',CL=[];const CB={};
 const csz=n=>n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';
 const cico=m=>{const x=(m.name.split('.').pop()||'').toLowerCase();return x=='pdf'?'📕':['xls','xlsx','csv'].includes(x)?'📗':['doc','docx'].includes(x)?'📘':['ppt','pptx'].includes(x)?'📙':['jpg','jpeg','png','webp'].includes(x)?'🖼️':['zip','rar'].includes(x)?'🗜️':'📄'};
 V.catalogs=async()=>{const adm=!ME().eng;
 $('#m').innerHTML=`<h2>Catalogs</h2><div class="bar"><input id="cq" placeholder="Search catalogs…" value="${e(CQ)}" oninput="CQ=this.value;crows()">${adm?'<button onclick="cup()">⬆ Upload catalog</button>':''}</div><div class="g cg" id="cl"></div><p class="k" id="cc"></p>`;
-try{CL=await CDB.list()}catch(x){CL=[];toast('Catalog storage is not available in this browser')}crows()};
+try{CL=await CDB.list()}catch(x){CL=[];toast('Could not load catalogs. Check your connection and sign in to the shared page.')}crows()};
 function crows(){const adm=!ME().eng,q=CQ.toLowerCase(),r=CL.filter(m=>(m.title+' '+m.name).toLowerCase().includes(q)).sort((a,b)=>b.at-a.at),box=$('#cl');if(!box)return;
 box.innerHTML=r.map(m=>`<div class="c cat"><div class="ci">${cico(m)}</div><b>${e(m.title)}</b><div class="k">${csz(m.size)}<br>Added ${fd(m.date)} by ${e(m.by)}</div><div class="ca"><button onclick="cdl('${m.id}')">⬇ Download</button><button class="b2" onclick="csh('${m.id}')">📤 Share</button>${adm?`<button class="bd" onclick="cdel('${m.id}')">🗑 Delete</button>`:''}</div></div>`).join('');
 $('#cc').textContent=r.length?r.length+' catalog'+(r.length>1?'s':''):(CL.length?'No catalogs match your search.':(adm?'No catalogs yet. Tap “Upload catalog” to add the first one.':'No catalogs have been uploaded yet.'))}
 let CS=[];
 function cup(){if(ME().eng)return;CS=[];
-$('#mo').innerHTML=`<div class="mo"><div class="mb" style="max-width:480px"><h3>Upload catalogs</h3><p class="k">The file name is used as the catalog name (max 40 MB each).</p><input id="cf" type="file" multiple onchange="cpick(this)"><div id="cs" style="margin-top:10px"></div><p><button id="cgo" onclick="cup2()">Upload</button> <button class="b2" onclick="$('#mo').innerHTML=''">Cancel</button></p></div></div>`;cshow()}
-function cpick(inp){for(const f of inp.files){if(f.size>40*1048576){toast(f.name+' is larger than 40 MB – not added');continue}if(!CS.some(x=>x.name==f.name&&x.size==f.size))CS.push(f)}inp.value='';cshow()}
+$('#mo').innerHTML=`<div class="mo"><div class="mb" style="max-width:480px"><h3>Upload catalogs</h3><p class="k">The file name is used as the catalog name (max 20 MB each). Uploaded catalogs appear on every device..</p><input id="cf" type="file" multiple onchange="cpick(this)"><div id="cs" style="margin-top:10px"></div><p><button id="cgo" onclick="cup2()">Upload</button> <button class="b2" onclick="$('#mo').innerHTML=''">Cancel</button></p></div></div>`;cshow()}
+function cpick(inp){for(const f of inp.files){if(f.size>20*1048576){toast(f.name+' is larger than 20 MB – not added');continue}if(!CS.some(x=>x.name==f.name&&x.size==f.size))CS.push(f)}inp.value='';cshow()}
 function cshow(){const b=$('#cs');if(!b)return;b.innerHTML=CS.map((f,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd)"><span style="flex:1;min-width:0;word-break:break-word">${e(f.name)} <span class="k">(${csz(f.size)})</span></span><button class="bd" onclick="CS.splice(${i},1);cshow()" title="Remove this file">✕</button></div>`).join('')||'<div class="k">No files selected yet.</div>';const g=$('#cgo');if(g)g.textContent=CS.length?'Upload '+CS.length+' file'+(CS.length>1?'s':''):'Upload'}
 async function cup2(){if(ME().eng){toast('Only admins can upload catalogs');return}
 if(!CS.length){toast('Choose a file first');return}let ok=0;
 for(const f of CS){const m={id:'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,7),title:f.name.replace(/\.[^.]+$/,''),brand:'',name:f.name,type:f.type,size:f.size,date:today(),at:Date.now(),by:CU.u};
-try{await CDB.put(m,f);ok++}catch(x){toast('Could not save '+f.name+' – device storage may be full');break}}
+try{await CDB.put(m,f);ok++}catch(x){toast('Could not upload '+f.name+': '+((x&&x.message)||'storage error'));console.error(x);break}}
 CS=[];$('#mo').innerHTML='';if(ok)toast(ok+' catalog'+(ok>1?'s':'')+' uploaded');V.catalogs()}
-async function cget(id){if(!CB[id])CB[id]=await CDB.file(id);return CB[id]}
+async function cget(id){try{if(!CB[id]){const m=CL.find(x=>x.id==id);CB[id]=m&&await CDB.file(m)};return CB[id]}catch(x){return null}}
 async function cdl(id){const m=CL.find(x=>x.id==id),f=await cget(id);if(!m||!f){toast('File not found');return}
-const d=await window.claude.use('downloads');await d.save({filename:m.name,data:f})}
+const d=await window.claude.use('downloads');if(!d){toast('Downloads are not available here');return}try{await d.save({filename:m.name,data:f})}catch(x){toast('Download cancelled')}}
 async function csh(id){const m=CL.find(x=>x.id==id);if(!m)return;const warm=!!CB[id];const b=await cget(id);if(!b){toast('File not found');return}
 const f=new File([b],m.name,{type:m.type||b.type||'application/octet-stream'});
 if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f],title:m.title,text:m.title+' – ACME Switchgears'})}catch(x){if(x&&x.name==='AbortError')return;if(x&&x.name==='NotAllowedError'&&!warm){toast('File is ready – tap Share once more');return}toast('Sharing failed – downloading instead');cdl(id)}}
 else{toast('Sharing is not supported on this browser – downloading so you can attach it in WhatsApp or email');cdl(id)}}
-function cdel(id){if(ME().eng)return;const m=CL.find(x=>x.id==id);if(!m)return;ask('Delete catalog “'+e(m.title)+'”? This cannot be undone.',async()=>{if(ME().eng)return;await CDB.del(id);delete CB[id];V.catalogs()})}
+function cdel(id){if(ME().eng)return;const m=CL.find(x=>x.id==id);if(!m)return;ask('Delete catalog “'+e(m.title)+'”? This cannot be undone.',async()=>{if(ME().eng)return;await CDB.del(m);delete CB[id];V.catalogs()})}
 (()=>{const r=document.querySelector('#nav a[data-k=reports]');if(r&&!document.querySelector('#nav a[data-k=catalogs]'))r.insertAdjacentHTML('beforebegin','<a data-k="catalogs" onclick="go(\'catalogs\')">📚 Catalogs</a>')})();
 
 boot();
@@ -505,3 +506,5 @@ setT(saved||(sysDark?'dark':'light'),0);ensure();
 if(NV)new MutationObserver(ensure).observe(NV,{childList:true});
 })();
 </script></body></html>
+
+</body></html>
