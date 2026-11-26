@@ -409,56 +409,68 @@ m.forEach(p=>{if(p.hsn!==h){p.hsn=h;n++}})});
 return n}
 if(!S.hsn1){applyHSN();S.hsn1=1;sv()}
 
-/* ===== LOGIN & ROLES (front-door only: runs in the browser, see notes) ===== */
-const SALT='acme-crm-v1:';
-function sha256(s){const m=unescape(encodeURIComponent(s)),K=[],H=[];let p=2,n=0;
-while(n<64){let ok=1;for(let d=2;d*d<=p;d++)if(p%d===0){ok=0;break}
-if(ok){if(n<8)H[n]=(Math.pow(p,.5)%1)*4294967296|0;K[n++]=(Math.pow(p,1/3)%1)*4294967296|0}p++}
-const b=[];for(let i=0;i<m.length;i++)b.push(m.charCodeAt(i));const bl=m.length*8;b.push(128);while(b.length%64!==56)b.push(0);
-b.push(0,0,0,0,(bl>>>24)&255,(bl>>>16)&255,(bl>>>8)&255,bl&255);const R=(x,c)=>(x>>>c)|(x<<(32-c));
-for(let o=0;o<b.length;o+=64){const w=[];for(let i=0;i<16;i++)w[i]=(b[o+4*i]<<24)|(b[o+4*i+1]<<16)|(b[o+4*i+2]<<8)|b[o+4*i+3];
-for(let i=16;i<64;i++){const a=w[i-15],c=w[i-2];w[i]=(w[i-16]+(R(a,7)^R(a,18)^(a>>>3))+w[i-7]+(R(c,17)^R(c,19)^(c>>>10)))|0}
-let [a,b2,c,d,e2,f,g,hh]=H;
-for(let i=0;i<64;i++){const t1=(hh+(R(e2,6)^R(e2,11)^R(e2,25))+((e2&f)^(~e2&g))+K[i]+w[i])|0,t2=((R(a,2)^R(a,13)^R(a,22))+((a&b2)^(a&c)^(b2&c)))|0;hh=g;g=f;f=e2;e2=(d+t1)|0;d=c;c=b2;b2=a;a=(t1+t2)|0}
-[a,b2,c,d,e2,f,g,hh].forEach((v,i)=>H[i]=(H[i]+v)|0)}
-return H.map(x=>(x>>>0).toString(16).padStart(8,'0')).join('')}
-const hp=(u,pw)=>sha256(SALT+u.toLowerCase()+':'+pw);
-const DEFAULT_USERS=[{u:'adminacme',r:'Admin',h:'427cb8d68775904686e0695830e131dfe84aaed4c80997ee6d0037909efba530'},{u:'adminmanagingacme',r:'Admin Managing',h:'3ef57143fe26ca47c8d61993a285886689b67744bde742de9c9fefe170019116'},{u:'engacme',r:'Engineer',h:'db77df8ec2b567244c82771f0a7ca8a4296647212d08145ff928e46ac86e2d04'}];
-let USERS=(()=>{try{const x=JSON.parse(localStorage.getItem('acme_users'));if(Array.isArray(x)&&x.length)return x}catch(x){}return JSON.parse(JSON.stringify(DEFAULT_USERS))})();
+/* ===== LOGIN & ROLES (Supabase Auth) ===== */
+const SB_URL='https://nbkyfjfgpzwnabfeorkx.supabase.co',SB_KEY='sb_publishable_ilyGQd50WNvT4OgFaqlqwA_VPYjq1gm';
+let USERS=[],CU=null,SBS=null;
 const refreshUOPT=()=>UOPT.splice(0,UOPT.length,'Unassigned',...USERS.filter(u=>u.r==='Engineer').map(u=>u.u));
-const saveU=()=>{try{localStorage.setItem('acme_users',JSON.stringify(USERS))}catch(x){}refreshUOPT()};
-refreshUOPT();
-let CU=null,FAILS=0,LOCKED=0;
 const ME=()=>CU?{u:CU.u,r:CU.r,eng:CU.r==='Engineer'}:{u:'',r:'',eng:true};
 const VIS=k=>ME().eng&&(k==='leads'||k==='quotes')?S[k].filter(x=>x.owner===ME().u):S[k];
 const CE=k=>!ME().eng||k==='leads';
 const CD=()=>!ME().eng;
+const sbSave=s=>{SBS=s;try{s?localStorage.setItem('acme_sb',JSON.stringify(s)):localStorage.removeItem('acme_sb')}catch(x){}};
+async function sbFetch(path,o={},tok){const h={apikey:SB_KEY,'Content-Type':'application/json',...(o.headers||{})};if(tok)h.Authorization='Bearer '+tok;
+const r=await fetch(SB_URL+path,{...o,headers:h});let j=null;try{j=await r.json()}catch(x){}
+if(!r.ok)throw new Error((j&&(j.msg||j.error_description||j.message||j.error))||('Request failed ('+r.status+')'));return j}
+const sbSession=j=>({access:j.access_token,refresh:j.refresh_token,exp:Date.now()+(j.expires_in||3600)*1000-60000,uid:j.user&&j.user.id});
+async function sbToken(){if(!SBS)return null;if(Date.now()<SBS.exp)return SBS.access;
+try{const j=await sbFetch('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:JSON.stringify({refresh_token:SBS.refresh})});sbSave(sbSession(j));return SBS.access}catch(x){sbSave(null);return null}}
+async function sbRest(path,o){const t=await sbToken();if(!t)throw new Error('Session expired. Please sign in again.');return sbFetch('/rest/v1/'+path,o,t)}
+async function loadUsers(){const rows=await sbRest('crm_users?select=id,username,email,role&order=created_at');
+USERS=rows.map(x=>({id:x.id,u:x.username,r:x.role,email:x.email}));refreshUOPT()}
+async function sbProfile(){const rows=await sbRest('crm_users?select=id,username,email,role&id=eq.'+SBS.uid);
+if(!rows.length)throw new Error('Your account has no CRM profile. Ask an admin to check your access.');
+const p=rows[0];CU={id:p.id,u:p.username,r:p.role,email:p.email}}
 function showLogin(msg,su){CU=null;document.body.classList.add('locked');$('#m').innerHTML='';$('#mo').innerHTML='';let d=$('#lg');if(!d){d=document.createElement('div');d.id='lg';document.body.appendChild(d)}
-d.innerHTML=`<div class="lgb"><img src="${(document.documentElement.dataset.theme=='dark'||(document.documentElement.dataset.theme!='light'&&matchMedia('(prefers-color-scheme:dark)').matches))?LOGO_L:LOGO}" alt="ACME Switchgears" class="lgimg" style="display:block;width:210px;max-width:75%;height:auto;margin:0 auto 12px"><h2>ACME SWITCHGEARS</h2><p class="k">CRM &amp; ERP – ${su?'create your account':'sign in'}</p><form onsubmit="return ${su?'doSignup':'doLogin'}(event)"><label class="k">Username</label><input id="lu" autocomplete="username" autocapitalize="none"><label class="k">Password${su?' (min 6 characters)':''}</label><input id="lp" type="password" autocomplete="${su?'new-password':'current-password'}"><div id="lm" style="color:var(--er);min-height:20px;margin:8px 0">${msg||''}</div><button style="width:100%">${su?'Sign up':'Sign in'}</button></form><p class="k" style="text-align:center;margin:12px 0 0">${su?'Already have an account? <a style="color:var(--pr,#1f6feb);cursor:pointer" onclick="showLogin()">Sign in</a>':'New here? <a style="color:var(--pr,#1f6feb);cursor:pointer" onclick="showLogin(\'\',1)">Sign up</a>'}</p></div>`;setTimeout(()=>{const i=$('#lu');if(i)i.focus()},50)}
-function doSignup(ev){ev.preventDefault();const m=$('#lm'),u=$('#lu').value.trim(),pw=$('#lp').value;
-if(!/^[A-Za-z0-9._-]{3,30}$/.test(u)){m.textContent='Username: 3–30 letters, numbers, . _ -';return false}
+d.innerHTML=`<div class="lgb"><img src="${(document.documentElement.dataset.theme=='dark'||(document.documentElement.dataset.theme!='light'&&matchMedia('(prefers-color-scheme:dark)').matches))?LOGO_L:LOGO}" alt="ACME Switchgears" class="lgimg" style="display:block;width:210px;max-width:75%;height:auto;margin:0 auto 12px"><h2>ACME SWITCHGEARS</h2><p class="k">CRM &amp; ERP – ${su?'create your account':'sign in'}</p><form onsubmit="return ${su?'doSignup':'doLogin'}(event)">${su?'<label class="k">Name / username</label><input id="lun" autocomplete="username" autocapitalize="none">':''}<label class="k">Email</label><input id="lu" type="email" autocomplete="email" autocapitalize="none"><label class="k">Password${su?' (min 6 characters)':''}</label><input id="lp" type="password" autocomplete="${su?'new-password':'current-password'}"><div id="lm" style="color:var(--er);min-height:20px;margin:8px 0">${msg||''}</div><button id="lbtn" style="width:100%">${su?'Sign up':'Sign in'}</button></form><p class="k" style="text-align:center;margin:12px 0 0">${su?'Already have an account? <a style="color:var(--pr,#1f6feb);cursor:pointer" onclick="showLogin()">Sign in</a>':'New here? <a style="color:var(--pr,#1f6feb);cursor:pointer" onclick="showLogin(\'\',1)">Sign up</a>'}</p></div>`;setTimeout(()=>{const i=$(su?'#lun':'#lu');if(i)i.focus()},50)}
+const lbusy=on=>{const b=$('#lbtn');if(b)b.disabled=on};
+async function doSignup(ev){ev.preventDefault();const m=$('#lm'),n=$('#lun').value.trim(),em=$('#lu').value.trim().toLowerCase(),pw=$('#lp').value;
+if(!/^[A-Za-z0-9._-]{3,30}$/.test(n)){m.textContent='Username: 3–30 letters, numbers, . _ -';return false}
+if(!/^\S+@\S+\.\S+$/.test(em)){m.textContent='Enter a valid email address.';return false}
 if(pw.length<6){m.textContent='Password must be at least 6 characters.';return false}
-if(USERS.some(x=>x.u.toLowerCase()===u.toLowerCase())){m.textContent='That username already exists.';return false}
-const x={u,r:'Engineer',h:hp(u,pw)};USERS.push(x);saveU();CU=x;try{sessionStorage.setItem('acme_sess',x.u)}catch(z){}enter();return false}
-function doLogin(ev){ev.preventDefault();const m=$('#lm');if(Date.now()<LOCKED){m.textContent='Too many attempts. Wait '+Math.ceil((LOCKED-Date.now())/1000)+' s.';return false}
-const u=$('#lu').value.trim().toLowerCase(),pw=$('#lp').value,x=USERS.find(y=>y.u.toLowerCase()===u);
-if(x&&x.h===hp(x.u,pw)){FAILS=0;CU=x;try{sessionStorage.setItem('acme_sess',x.u)}catch(z){}enter();return false}
-if(++FAILS>=5){LOCKED=Date.now()+30000;FAILS=0;m.textContent='Too many attempts. Try again in 30 s.'}else m.textContent='Incorrect username or password.';$('#lp').value='';return false}
+lbusy(true);m.textContent='';
+try{const j=await sbFetch('/auth/v1/signup',{method:'POST',body:JSON.stringify({email:em,password:pw,data:{username:n}})});
+if(!j.access_token){showLogin('');$('#lm').style.color='var(--ok)';$('#lm').textContent='Account created. Check your email to confirm it, then sign in.';return false}
+sbSave(sbSession(j));await sbProfile();await loadUsers();enter()}
+catch(x){m.textContent=/already|registered/i.test(x.message)?'That email is already registered.':/unique|duplicate/i.test(x.message)?'That username is taken.':x.message;lbusy(false);sbSave(null)}
+return false}
+async function doLogin(ev){ev.preventDefault();const m=$('#lm'),em=$('#lu').value.trim().toLowerCase(),pw=$('#lp').value;
+if(!em||!pw){m.textContent='Enter your email and password.';return false}
+lbusy(true);m.textContent='';
+try{const j=await sbFetch('/auth/v1/token?grant_type=password',{method:'POST',body:JSON.stringify({email:em,password:pw})});
+sbSave(sbSession(j));await sbProfile();await loadUsers();enter()}
+catch(x){sbSave(null);CU=null;m.textContent=/invalid login/i.test(x.message)?'Incorrect email or password.':/not confirmed/i.test(x.message)?'Please confirm your email first.':x.message;$('#lp').value='';lbusy(false)}
+return false}
 function enter(){const d=$('#lg');if(d)d.remove();document.body.classList.remove('locked');
 ['settings','customers'].forEach(k=>{const st=document.querySelector('#nav a[data-k='+k+']');if(st)st.style.display=ME().eng?'none':''});
 let b=$('#ub');if(b)b.remove();$('#nav').insertAdjacentHTML('beforeend',`<div id="ub">${e(CU.u)}<br>${e(CU.r)}<br><a onclick="logout()">Sign out</a></div>`);go('dash')}
-function logout(){try{sessionStorage.removeItem('acme_sess')}catch(z){}showLogin()}
-function boot(){let s=null;try{s=sessionStorage.getItem('acme_sess')}catch(z){}const x=s&&USERS.find(y=>y.u===s);if(x){CU=x;enter()}else showLogin()}
+async function logout(){try{const t=SBS&&await sbToken();if(t)await sbFetch('/auth/v1/logout',{method:'POST'},t)}catch(x){}sbSave(null);USERS=[];refreshUOPT();showLogin()}
+async function boot(){let s=null;try{s=JSON.parse(localStorage.getItem('acme_sb'))}catch(z){}
+if(s&&s.refresh){SBS=s;try{if(!await sbToken())throw 0;await sbProfile();await loadUsers();enter();return}catch(x){sbSave(null);CU=null}}
+showLogin()}
 /* user management (inside Settings, admins only) */
 const s0=V.settings;V.settings=()=>{if(ME().eng){go('dash');return}s0();
-$('#m').insertAdjacentHTML('beforeend',`<h3>User management</h3><div class="c tw"><table><thead><tr><th>Username</th><th>Role</th><th></th></tr></thead><tbody>${USERS.map((u,i)=>`<tr><td>${e(u.u)}</td><td>${e(u.r)}</td><td class="r"><button class="bd" onclick="udel(${i})">Remove</button></td></tr>`).join('')}</tbody></table></div><div class="c" style="margin-top:12px"><b>Add user</b><div class="f"><div><label>Username</label><input id="nu" autocapitalize="none"></div><div><label>Role</label><select id="nr"><option>Engineer</option><option>Admin</option><option>Admin Managing</option></select></div><div class="w"><label>Password (min 6 characters)</label><input id="np" type="password"></div></div><p><button onclick="uadd()">Add user</button></p></div>`)};
-function uadd(){const u=$('#nu').value.trim(),pw=$('#np').value;if(!u||pw.length<6){toast('Enter a username and a password of 6+ characters');return}
-if(USERS.some(x=>x.u.toLowerCase()===u.toLowerCase())){toast('That username already exists');return}USERS.push({u,r:$('#nr').value,h:hp(u,pw)});saveU();go('settings')}
-function upw(i){$('#mo').innerHTML=`<div class="mo"><div class="mb" style="max-width:380px"><h3>Change password</h3><p class="k">${e(USERS[i].u)}</p><input id="npw" type="password" placeholder="New password (min 6)"><p><button onclick="upw2(${i})">Save</button> <button class="b2" onclick="$('#mo').innerHTML=''">Cancel</button></p></div></div>`}
-function upw2(i){const pw=$('#npw').value;if(pw.length<6){toast('Use at least 6 characters');return}USERS[i].h=hp(USERS[i].u,pw);saveU();$('#mo').innerHTML='';toast('Password changed')}
-function udel(i){const u=USERS[i];if(u.u===CU.u){toast('You cannot remove the account you are signed in with');return}
-if(u.r!=='Engineer'&&USERS.filter(x=>x.r!=='Engineer').length<2){toast('Keep at least one admin account');return}
-ask('Remove user '+e(u.u)+'?',()=>{USERS.splice(i,1);saveU();go('settings')})}
+$('#m').insertAdjacentHTML('beforeend',`<h3>User management</h3><p class="k">New staff sign up from the login screen (they start as Engineers). Change their role here. Passwords are managed by Supabase.</p><div class="c tw"><table><thead><tr><th>Username</th><th>Email</th><th>Role</th><th></th></tr></thead><tbody>${USERS.map((u,i)=>`<tr><td>${e(u.u)}</td><td>${e(u.email||'')}</td><td><select style="min-width:150px" onchange="urole(${i},this.value)">${['Engineer','Admin','Admin Managing'].map(r=>`<option ${r===u.r?'selected':''}>${r}</option>`).join('')}</select></td><td class="r"><button class="bd" onclick="udel(${i})">Remove access</button></td></tr>`).join('')}</tbody></table></div><p><button class="b2" onclick="upw()">Change my password</button></p>`)};
+const nAdmins=()=>USERS.filter(x=>x.r!=='Engineer').length;
+async function urole(i,r){const u=USERS[i];if(u.r===r)return;
+if(u.id===CU.id&&r==='Engineer'&&nAdmins()<2){toast('Keep at least one admin account');go('settings');return}
+try{await sbRest('crm_users?id=eq.'+u.id,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({role:r})});
+u.r=r;if(u.id===CU.id){CU.r=r;if(r==='Engineer'){enter();return}}refreshUOPT();toast('Role updated')}catch(x){toast(x.message)}go('settings')}
+function udel(i){const u=USERS[i];if(u.id===CU.id){toast('You cannot remove the account you are signed in with');return}
+if(u.r!=='Engineer'&&nAdmins()<2){toast('Keep at least one admin account');return}
+ask('Remove CRM access for '+e(u.u)+'? They will no longer be able to use the CRM.',async()=>{try{await sbRest('crm_users?id=eq.'+u.id,{method:'DELETE',headers:{Prefer:'return=minimal'}});USERS.splice(i,1);refreshUOPT();toast('Access removed')}catch(x){toast(x.message)}go('settings')})}
+function upw(){$('#mo').innerHTML=`<div class="mo"><div class="mb" style="max-width:380px"><h3>Change my password</h3><input id="npw" type="password" placeholder="New password (min 6)"><p><button onclick="upw2()">Save</button> <button class="b2" onclick="$('#mo').innerHTML=''">Cancel</button></p></div></div>`}
+async function upw2(){const pw=$('#npw').value;if(pw.length<6){toast('Use at least 6 characters');return}
+try{const t=await sbToken();await sbFetch('/auth/v1/user',{method:'PUT',body:JSON.stringify({password:pw})},t);$('#mo').innerHTML='';toast('Password changed')}catch(x){toast(x.message)}}
 /* ===== CATALOGS: everyone signed in can view / download / share; only admins can upload & delete ===== */
 const CDB=(()=>{let p;const o=()=>p||(p=new Promise((res,rej)=>{const r=indexedDB.open('acme_catalogs',1);r.onupgradeneeded=()=>{r.result.createObjectStore('m',{keyPath:'id'});r.result.createObjectStore('f')};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}));
 const run=async(st,mode,fn)=>{const d=await o();return new Promise((res,rej)=>{const tx=d.transaction(st,mode);let q;tx.oncomplete=()=>res(q&&q.result);tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error||new Error('Storage full or blocked'));q=fn(tx)})};
