@@ -472,17 +472,25 @@ function upw(){$('#mo').innerHTML=`<div class="mo"><div class="mb" style="max-wi
 async function upw2(){const pw=$('#npw').value;if(pw.length<6){toast('Use at least 6 characters');return}
 try{const t=await sbToken();await sbFetch('/auth/v1/user',{method:'PUT',body:JSON.stringify({password:pw})},t);$('#mo').innerHTML='';toast('Password changed')}catch(x){toast(x.message)}}
 /* ===== CATALOGS: everyone signed in can view / download / share; only admins can upload & delete ===== */
-const CDB=(()=>{let p;const o=()=>p||(p=new Promise((res,rej)=>{const r=indexedDB.open('acme_catalogs',1);r.onupgradeneeded=()=>{r.result.createObjectStore('m',{keyPath:'id'});r.result.createObjectStore('f')};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}));
-const run=async(st,mode,fn)=>{const d=await o();return new Promise((res,rej)=>{const tx=d.transaction(st,mode);let q;tx.oncomplete=()=>res(q&&q.result);tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error||new Error('Storage full or blocked'));q=fn(tx)})};
-return{list:()=>run('m','readonly',tx=>tx.objectStore('m').getAll()),file:id=>run('f','readonly',tx=>tx.objectStore('f').get(id)),
-put:(m,f)=>run(['m','f'],'readwrite',tx=>{tx.objectStore('m').put(m);tx.objectStore('f').put(f,m.id)}),
-del:id=>run(['m','f'],'readwrite',tx=>{tx.objectStore('m').delete(id);tx.objectStore('f').delete(id)})}})();
+const CDB=(()=>{const B='/storage/v1/object/catalogs/';
+const hd=async x=>{const t=await sbToken();if(!t)throw new Error('Session expired. Please sign in again.');return{apikey:SB_KEY,Authorization:'Bearer '+t,...(x||{})}};
+return{list:async()=>(await sbRest('crm_catalogs?select=meta&order=created_at.desc')).map(r=>r.meta),
+file:async id=>{const r=await fetch(SB_URL+B+encodeURIComponent(id),{headers:await hd()});return r.ok?await r.blob():null},
+put:async(m,f)=>{const r=await fetch(SB_URL+B+encodeURIComponent(m.id),{method:'POST',headers:await hd({'x-upsert':'true','Content-Type':f.type||'application/octet-stream'}),body:f});
+ if(!r.ok){let x='';try{x=(await r.json()).message}catch(z){}throw new Error(x||('status '+r.status))}
+ await sbRest('crm_catalogs?on_conflict=id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({id:m.id,meta:m})})},
+del:async id=>{await fetch(SB_URL+B+encodeURIComponent(id),{method:'DELETE',headers:await hd()});await sbRest('crm_catalogs?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:{Prefer:'return=minimal'}})}}})();
+async function cmig(){if(ME().eng)return;try{const d=await new Promise((res,rej)=>{const r=indexedDB.open('acme_catalogs',1);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+ const ms=await new Promise((res,rej)=>{const q=d.transaction('m').objectStore('m').getAll();q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)});
+ if(!ms.length){toast('No old catalogs found in this browser');return}toast('Moving '+ms.length+' catalog(s) to cloud…');let n=0;
+ for(const m of ms){const f=await new Promise(res=>{const q=d.transaction('f').objectStore('f').get(m.id);q.onsuccess=()=>res(q.result);q.onerror=()=>res(null)});if(f){await CDB.put(m,f);n++}}
+ toast(n+' catalog(s) moved to cloud');V.catalogs()}catch(x){toast('No old catalogs found in this browser')}}
 let CQ='',CL=[];const CB={};
 const csz=n=>n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';
 const cico=m=>{const x=(m.name.split('.').pop()||'').toLowerCase();return x=='pdf'?'📕':['xls','xlsx','csv'].includes(x)?'📗':['doc','docx'].includes(x)?'📘':['ppt','pptx'].includes(x)?'📙':['jpg','jpeg','png','webp'].includes(x)?'🖼️':['zip','rar'].includes(x)?'🗜️':'📄'};
 V.catalogs=async()=>{const adm=!ME().eng;
-$('#m').innerHTML=`<h2>Catalogs</h2><div class="bar"><input id="cq" placeholder="Search catalogs…" value="${e(CQ)}" oninput="CQ=this.value;crows()">${adm?'<button onclick="cup()">⬆ Upload catalog</button>':''}</div><div class="g cg" id="cl"></div><p class="k" id="cc"></p>`;
-try{CL=await CDB.list()}catch(x){CL=[];toast('Catalog storage is not available in this browser')}crows()};
+$('#m').innerHTML=`<h2>Catalogs</h2><div class="bar"><input id="cq" placeholder="Search catalogs…" value="${e(CQ)}" oninput="CQ=this.value;crows()">${adm?'<button onclick="cup()">⬆ Upload catalog</button><button class="b2" onclick="cmig()">☁ Move old catalogs</button>':''}</div><div class="g cg" id="cl"></div><p class="k" id="cc"></p>`;
+try{CL=await CDB.list()}catch(x){CL=[];toast('Catalogs: '+x.message)}crows()};
 function crows(){const adm=!ME().eng,q=CQ.toLowerCase(),r=CL.filter(m=>(m.title+' '+m.name).toLowerCase().includes(q)).sort((a,b)=>b.at-a.at),box=$('#cl');if(!box)return;
 box.innerHTML=r.map(m=>`<div class="c cat"><div class="ci">${cico(m)}</div><b>${e(m.title)}</b><div class="k">${csz(m.size)}<br>Added ${fd(m.date)} by ${e(m.by)}</div><div class="ca"><button onclick="cdl('${m.id}')">⬇ Download</button><button class="b2" onclick="csh('${m.id}')">📤 Share</button>${adm?`<button class="bd" onclick="cdel('${m.id}')">🗑 Delete</button>`:''}</div></div>`).join('');
 $('#cc').textContent=r.length?r.length+' catalog'+(r.length>1?'s':''):(CL.length?'No catalogs match your search.':(adm?'No catalogs yet. Tap “Upload catalog” to add the first one.':'No catalogs have been uploaded yet.'))}
@@ -492,13 +500,13 @@ $('#mo').innerHTML=`<div class="mo"><div class="mb" style="max-width:480px"><h3>
 function cpick(inp){for(const f of inp.files){if(f.size>40*1048576){toast(f.name+' is larger than 40 MB – not added');continue}if(!CS.some(x=>x.name==f.name&&x.size==f.size))CS.push(f)}inp.value='';cshow()}
 function cshow(){const b=$('#cs');if(!b)return;b.innerHTML=CS.map((f,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd)"><span style="flex:1;min-width:0;word-break:break-word">${e(f.name)} <span class="k">(${csz(f.size)})</span></span><button class="bd" onclick="CS.splice(${i},1);cshow()" title="Remove this file">✕</button></div>`).join('')||'<div class="k">No files selected yet.</div>';const g=$('#cgo');if(g)g.textContent=CS.length?'Upload '+CS.length+' file'+(CS.length>1?'s':''):'Upload'}
 async function cup2(){if(ME().eng){toast('Only admins can upload catalogs');return}
-if(!CS.length){toast('Choose a file first');return}let ok=0;
+if(!CS.length){toast('Choose a file first');return}let ok=0;toast('Uploading… please wait');
 for(const f of CS){const m={id:'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,7),title:f.name.replace(/\.[^.]+$/,''),brand:'',name:f.name,type:f.type,size:f.size,date:today(),at:Date.now(),by:CU.u};
-try{await CDB.put(m,f);ok++}catch(x){toast('Could not save '+f.name+' – device storage may be full');break}}
+try{await CDB.put(m,f);ok++}catch(x){toast('Could not upload '+f.name+': '+x.message);break}}
 CS=[];$('#mo').innerHTML='';if(ok)toast(ok+' catalog'+(ok>1?'s':'')+' uploaded');V.catalogs()}
 async function cget(id){if(!CB[id])CB[id]=await CDB.file(id);return CB[id]}
 async function cdl(id){const m=CL.find(x=>x.id==id),f=await cget(id);if(!m||!f){toast('File not found');return}
-const d=await window.claude.use('downloads');await d.save({filename:m.name,data:f})}
+await savef(m.name,f)}
 async function csh(id){const m=CL.find(x=>x.id==id);if(!m)return;const warm=!!CB[id];const b=await cget(id);if(!b){toast('File not found');return}
 const f=new File([b],m.name,{type:m.type||b.type||'application/octet-stream'});
 if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f],title:m.title,text:m.title+' – ACME Switchgears'})}catch(x){if(x&&x.name==='AbortError')return;if(x&&x.name==='NotAllowedError'&&!warm){toast('File is ready – tap Share once more');return}toast('Sharing failed – downloading instead');cdl(id)}}
