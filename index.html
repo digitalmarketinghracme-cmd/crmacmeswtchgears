@@ -194,7 +194,7 @@ function askYes(){const f=window._askCb;window._askCb=null;$('#mo').innerHTML=''
 function toast(m){const t=document.createElement('div');t.textContent=m;t.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1b2433;color:#fff;padding:10px 16px;border-radius:8px;z-index:99;max-width:90vw';document.body.appendChild(t);setTimeout(()=>t.remove(),3200)}
 const seed=()=>({seq:{q:0,i:0,c:0,p:0,l:0},customers:[],products:[],leads:[],quotes:[],invoices:[]});
 let S;try{S=JSON.parse(localStorage.getItem('acme'))}catch(e){}if(!S)S=seed();
-const sv=()=>{try{localStorage.setItem('acme',JSON.stringify(S))}catch(e){}if(typeof cloudPush==='function')cloudPush();if(typeof gsPush==='function')gsPush()};
+const sv=()=>{try{localStorage.setItem('acme',JSON.stringify(S))}catch(e){}if(typeof cloudPush==='function')cloudPush()};
 const inr=n=>'₹'+(+n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fd=d=>d?d.split('-').reverse().join('-'):'';const today=()=>new Date().toISOString().slice(0,10);
 const e=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -636,7 +636,7 @@ async function cloudLoad(){
  if(!rows.length&&!cadm()){CON=false;cbadge('⚠ Cloud is empty – ask the admin to open the CRM once',1);return}
  if(rows.length){try{if(!localStorage.getItem('acme_precloud'))localStorage.setItem('acme_precloud',JSON.stringify(S))}catch(x){}
   rows.forEach(r=>{S[r.key]=r.value;CVER[r.key]=r.updated_at;});ext();rows.forEach(r=>cmark(r.key))}
- clocal();CON=true;cbadge('☁ Cloud sync on');setTimeout(()=>{if(typeof gsPush==='function')gsPush()},3000);if(cadm())setTimeout(()=>cloudExcel().then(()=>cbadge('☁ Excel saved '+cday()+'.xlsx')).catch(x=>cbadge('⚠ Excel upload failed: '+x.message,1)),1500);
+ clocal();CON=true;cbadge('☁ Cloud sync on');if(cadm())setTimeout(()=>cloudExcel().then(()=>cbadge('☁ Excel saved '+cday()+'.xlsx')).catch(x=>cbadge('⚠ Excel upload failed: '+x.message,1)),1500);
  if(Object.keys(S).some(k=>!(k in CSIG)))cloudPush()}
 function cloudPush(){if(!CON||!SBS)return;clearTimeout(CT);CT=setTimeout(()=>{CT=null;cloudFlush()},2500)}
 async function cloudFlush(){
@@ -679,18 +679,16 @@ function cwb(){const wb=XLSX.utils.book_new(),add=(n,h,r)=>XLSX.utils.book_appen
  add('Engineers Report',['Engineer','Customer company','Area','Phone','Product','Status','Visit date','Remarks'],(S.ereports||[]).map(r=>[r.owner,r.company,typeof arx==='function'?arx(r.area):(r.area||''),r.phone||'',r.product,r.status,fd(r.visit),r.remarks||'']));
  const iv=DATA.invoices();add('Invoices',iv[1],iv[2]);
  add('Overall Report',['Item','Value'],cmetrics());return wb}
-const GS_URL='https://script.google.com/macros/s/AKfycbzhbZ1M8yarRsm0a6dgRsTPpawjcyLHe2ePapds6asdN1Yl8ovnS0D637j127Ty_1yC/exec',GS_KEY='acme2026';
-const gsCfg=()=>({url:GS_URL,key:GS_KEY});
+const GS_URL='https://script.google.com/macros/s/AKfycbzhbZ1M8yarRsm0a6dgRsTPpawjcyLHe2ePapds6asdN1Yl8ovnS0D637j127Ty_1yC/exec',GS_KEY='CHANGE-ME'; /* paste your Google Apps Script web-app URL in GS_URL, and the same secret in GS_KEY */
+const gsCfg=()=>{let o={};try{o=JSON.parse(localStorage.getItem('acme_gs'))||{}}catch(x){}return{url:o.url||GS_URL,key:o.key||GS_KEY}};
 function gsSave(){try{localStorage.setItem('acme_gs',JSON.stringify({url:$('#gsu').value.trim(),key:$('#gsk').value.trim()}));toast('Saved')}catch(x){toast('Could not save')}}
-let GT=null;function gsPush(){if(!CU)return;clearTimeout(GT);GT=setTimeout(()=>{GT=null;cloudSheet().catch(()=>{})},2000)}
-async function cloudSheet(manual){const c=gsCfg();if(!c.url||!window.XLSX)return;
+async function cloudSheet(manual){const c=gsCfg();if(!c.url||!window.XLSX){if(manual)toast('Paste the Google Script URL in Settings first');return}
  const wb=cwb(),o={};wb.SheetNames.forEach(n=>{o[n]=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:''})});const body=JSON.stringify({key:c.key,sheets:o});
- try{const r=await fetch(c.url,{method:'POST',headers:{'Content-Type':'text/plain'},body}),t=(await r.text()).trim();
-  if(t!=='ok')cbadge('⚠ Google Sheet: '+t.replace(/<[^>]*>/g,' ').slice(0,80),1);
-  else{cbadge('☁ Google Sheet updated '+new Date().toLocaleTimeString());if(manual)toast('Google Sheet updated')}}
- catch(x){await fetch(c.url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body})}}
+ try{const r=await fetch(c.url,{method:'POST',headers:{'Content-Type':'text/plain'},body}),t=(await r.text()).trim();if(manual)toast(t==='ok'?'Google Sheet updated':'Google script said: '+t.replace(/<[^>]*>/g,' ').slice(0,90));return}
+ catch(x){await fetch(c.url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body});if(manual)toast('Sent to Google Sheet - please check the sheet')}}
 async function cloudExcel(manual){
  if(!window.XLSX){if(manual)toast('Excel library did not load');return}
+ try{await cloudSheet()}catch(x){}
  const data=XLSX.write(cwb(),{bookType:'xlsx',type:'array'}),t=await sbToken(),name=cday()+'.xlsx';
  for(const fn of ['latest.xlsx',name]){const r=await fetch(SB_URL+'/storage/v1/object/daily-excel/'+fn,{method:'POST',headers:{apikey:SB_KEY,Authorization:'Bearer '+t,'x-upsert':'true','Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'},body:data});
  if(!r.ok){let m='';try{m=(await r.json()).message}catch(x){}throw new Error(m||('status '+r.status))}}
@@ -698,7 +696,7 @@ async function cloudExcel(manual){
  if(manual)toast('Excel saved in cloud: '+name)}
 function cloudDown(){if(!window.XLSX){toast('Excel library did not load');return}savef('ACME-CRM-'+cday()+'.xlsx',XLSX.write(cwb(),{bookType:'xlsx',type:'array'}))}
 function cloudForce(){ask('Replace ALL cloud data with the data in this browser?',async()=>{CON=true;CFORCE=true;CSIG={};try{await cloudFlush();toast('Uploaded to cloud')}finally{CFORCE=false}})}
-{const s2=V.settings;V.settings=()=>{s2();if(!cadm())return;$('#m').insertAdjacentHTML('beforeend','<h3>Cloud (Supabase)</h3><p class="k">Changes save automatically to Supabase. The Excel file <b>latest.xlsx</b> (plus a dated copy) is updated in Storage bucket <b>daily-excel</b> after every change by anyone.</p><p><input id="gsu" placeholder="Google Script URL (ends with /exec)" style="width:100%"><br><input id="gsk" placeholder="Secret word" style="margin-top:6px"> <button class="b2" onclick="gsSave()">Save</button> <button class="b2" onclick="cloudSheet(1)">Send to Google Sheet now</button></p><p><button class="b2" onclick="cloudExcel(1).catch(x=>toast(x.message))">Save today\'s Excel now</button> <button class="b2" onclick="cloudDown()">Download Excel</button> <button class="bd" onclick="cloudForce()">Upload this browser\'s data to cloud</button></p>');const c=gsCfg();$('#gsu').value=c.url;$('#gsk').value=c.key}}
+{const s2=V.settings;V.settings=()=>{s2();if(!cadm())return;$('#m').insertAdjacentHTML('beforeend','<h3>Cloud (Supabase)</h3><p class="k">Changes save automatically to Supabase. The Excel file <b>latest.xlsx</b> (plus a dated copy) is updated in Storage bucket <b>daily-excel</b> after every change by anyone.</p><p><input id="gsu" placeholder="Google Script URL (ends with /exec)" style="width:100%"><br><input id="gsk" placeholder="Secret word" style="margin-top:6px"> <button class="b2" onclick="gsSave()">Save</button> <button class="b2" onclick="cloudSheet(1)">Send to Google Sheet now</button></p><p><button class="b2" onclick="cloudExcel(1).catch(x=>toast(x.message))">Save today\'s Excel now</button> <button class="b2" onclick="cloudDown()">Download Excel</button> <button class="bd" onclick="cloudForce()">Upload this browser\'s data to cloud</button></p>');const c=gsCfg();$('#gsu').value=c.url==='CHANGE-ME'?'':c.url;$('#gsk').value=c.key}}
 setInterval(cloudPull,60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)cloudPull()});
 
 boot();
