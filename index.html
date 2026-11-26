@@ -327,7 +327,7 @@ const XF=[['name','Description'],['cat','Category',['Rent','Salary','Transport',
 const FM={leads:LF,customers:CF,products:PF,suppliers:SF,employees:EF,expenses:XF};let SECS=[];
 function ext(){['suppliers','purchases','employees','expenses','moves'].forEach(k=>S[k]=S[k]||[]);}
 ext();
-async function savef(fn,data){try{const D=await claude.use('downloads');if(!D)throw 0;await D.save({filename:fn,data})}catch(x){if(!x||x.code!=='declined')toast('Download is not available in this view')}}
+async function savef(fn,data){try{const D=await claude.use('downloads');if(!D)throw 0;await D.save({filename:fn,data})}catch(x){if(x&&x.code==='declined')return;try{const b=new Blob([data]),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=fn;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},1500)}catch(y){toast('Download failed')}}}
 function inventory(){const m=S.moves.slice(-10).reverse();$('#m').innerHTML=`<h2>Inventory</h2><div class="bar"><input id="iq" placeholder="Search product…" oninput="irows()"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="il" style="width:auto" onchange="irows()"> Low stock only</label></div><div class="c tw"><table><thead><tr><th>Code</th><th>Product</th><th>Stock</th><th>Min</th><th></th></tr></thead><tbody id="ib"></tbody></table></div><p class="k" id="ic"></p><h3>Recent stock movements</h3><div class="c tw"><table><thead><tr><th>Date</th><th>Product</th><th>Change</th><th>Reason</th></tr></thead><tbody>${m.map(x=>`<tr><td>${fd(x.date)}</td><td>${e(S.products.find(p=>p.id==x.pid)?.name)}</td><td>${x.qty>0?'+':''}${x.qty}</td><td>${e(x.why)}</td></tr>`).join('')||'<tr><td>No movements yet</td></tr>'}</tbody></table></div>`;irows()}
 function irows(){const s=$('#iq').value.toLowerCase(),lo=$('#il').checked,a=S.products.filter(p=>(!lo||isLow(p))&&(p.name+' '+p.code).toLowerCase().includes(s));$('#ic').textContent=a.length>250?`Showing first 250 of ${a.length} – search to narrow.`:a.length+' item(s)';$('#ib').innerHTML=a.slice(0,250).map(p=>`<tr><td>${e(p.code)}</td><td>${e(p.name)}</td><td>${isLow(p)?`<b style="color:var(--er)">${p.stock} ⚠</b>`:p.stock}</td><td>${p.min}</td><td class="r"><button onclick="adj(${p.id})">Adjust stock</button> <button class="b2" onclick="edit('products',${p.id})">Edit</button></td></tr>`).join('')||'<tr><td>No items</td></tr>'}
 function adj(id){const p=S.products.find(x=>x.id==id);$('#mo').innerHTML=`<div class="mo"><div class="mb"><h3>${e(p.name)}</h3><p class="k">Current stock: ${p.stock}</p><div class="f"><div><label>Change (+ add / − reduce)</label><input id="aq" type="number" step="any"></div><div><label>Reason</label><input id="ar" value="Stock adjustment"></div></div><p><button onclick="adj2(${id})">Save</button> <button class="b2" onclick="$('#mo').innerHTML=''">Cancel</button></p></div></div>`}
@@ -625,7 +625,7 @@ async function cloudLoad(){
  if(!rows.length&&!cadm()){CON=false;cbadge('⚠ Cloud is empty – ask the admin to open the CRM once',1);return}
  if(rows.length){try{if(!localStorage.getItem('acme_precloud'))localStorage.setItem('acme_precloud',JSON.stringify(S))}catch(x){}
   rows.forEach(r=>{S[r.key]=r.value;CVER[r.key]=r.updated_at;});ext();rows.forEach(r=>cmark(r.key))}
- clocal();CON=true;cbadge('☁ Cloud sync on');
+ clocal();CON=true;cbadge('☁ Cloud sync on');if(cadm())setTimeout(()=>cloudExcel().then(()=>cbadge('☁ Excel saved '+cday()+'.xlsx')).catch(x=>cbadge('⚠ Excel upload failed: '+x.message,1)),1500);
  if(Object.keys(S).some(k=>!(k in CSIG)))cloudPush()}
 function cloudPush(){if(!CON||!SBS)return;clearTimeout(CT);CT=setTimeout(()=>{CT=null;cloudFlush()},2500)}
 async function cloudFlush(){
@@ -643,7 +643,7 @@ async function cloudFlush(){
    ch.forEach(k=>{cmark(k);CVER[k]=now});clocal();
    cbadge('☁ Saved '+new Date().toLocaleTimeString());
    if(merged)crender();
-   if(cadm()){try{await cloudExcel()}catch(x){cbadge('⚠ Data saved, Excel upload failed: '+x.message,1)}}
+   try{await cloudExcel()}catch(x){cbadge('⚠ Data saved, Excel upload failed: '+x.message,1)}
   }
  }catch(x){cbadge('⚠ Cloud save failed: '+x.message,1)}
  CBUSY=false}
@@ -668,16 +668,24 @@ function cwb(){const wb=XLSX.utils.book_new(),add=(n,h,r)=>XLSX.utils.book_appen
  add('Engineers Report',['Engineer','Customer company','Area','Phone','Product','Status','Visit date','Remarks'],(S.ereports||[]).map(r=>[r.owner,r.company,typeof arx==='function'?arx(r.area):(r.area||''),r.phone||'',r.product,r.status,fd(r.visit),r.remarks||'']));
  const iv=DATA.invoices();add('Invoices',iv[1],iv[2]);
  add('Overall Report',['Item','Value'],cmetrics());return wb}
+const GS_URL='',GS_KEY='CHANGE-ME'; /* paste your Google Apps Script web-app URL in GS_URL, and the same secret in GS_KEY */
+const gsCfg=()=>{let o={};try{o=JSON.parse(localStorage.getItem('acme_gs'))||{}}catch(x){}return{url:o.url||GS_URL,key:o.key||GS_KEY}};
+function gsSave(){try{localStorage.setItem('acme_gs',JSON.stringify({url:$('#gsu').value.trim(),key:$('#gsk').value.trim()}));toast('Saved')}catch(x){toast('Could not save')}}
+async function cloudSheet(manual){const c=gsCfg();if(!c.url||!window.XLSX){if(manual)toast('Paste the Google Script URL in Settings first');return}
+ const wb=cwb(),o={};wb.SheetNames.forEach(n=>{o[n]=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:''})});const body=JSON.stringify({key:c.key,sheets:o});
+ try{const r=await fetch(c.url,{method:'POST',headers:{'Content-Type':'text/plain'},body}),t=(await r.text()).trim();if(manual)toast(t==='ok'?'Google Sheet updated':'Google script said: '+t.replace(/<[^>]*>/g,' ').slice(0,90));return}
+ catch(x){await fetch(c.url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body});if(manual)toast('Sent to Google Sheet - please check the sheet')}}
 async function cloudExcel(manual){
  if(!window.XLSX){if(manual)toast('Excel library did not load');return}
+ if(cadm()){try{await cloudSheet()}catch(x){}}
  const data=XLSX.write(cwb(),{bookType:'xlsx',type:'array'}),t=await sbToken(),name=cday()+'.xlsx';
- const r=await fetch(SB_URL+'/storage/v1/object/daily-excel/'+name,{method:'POST',headers:{apikey:SB_KEY,Authorization:'Bearer '+t,'x-upsert':'true','Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'},body:data});
- if(!r.ok){let m='';try{m=(await r.json()).message}catch(x){}throw new Error(m||('status '+r.status))}
+ for(const fn of ['latest.xlsx',name]){const r=await fetch(SB_URL+'/storage/v1/object/daily-excel/'+fn,{method:'POST',headers:{apikey:SB_KEY,Authorization:'Bearer '+t,'x-upsert':'true','Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'},body:data});
+ if(!r.ok){let m='';try{m=(await r.json()).message}catch(x){}throw new Error(m||('status '+r.status))}}
  await sbRest('crm_data?on_conflict=key',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify([{key:'overall_report',value:{date:cday(),metrics:cmetrics()},updated_by:CU.u,updated_at:new Date().toISOString()}])});
  if(manual)toast('Excel saved in cloud: '+name)}
 function cloudDown(){if(!window.XLSX){toast('Excel library did not load');return}savef('ACME-CRM-'+cday()+'.xlsx',XLSX.write(cwb(),{bookType:'xlsx',type:'array'}))}
 function cloudForce(){ask('Replace ALL cloud data with the data in this browser?',async()=>{CON=true;CFORCE=true;CSIG={};try{await cloudFlush();toast('Uploaded to cloud')}finally{CFORCE=false}})}
-{const s2=V.settings;V.settings=()=>{s2();if(!cadm())return;$('#m').insertAdjacentHTML('beforeend','<h3>Cloud (Supabase)</h3><p class="k">Changes save automatically to Supabase. Today\'s Excel file is kept updated in Storage bucket <b>daily-excel</b>.</p><p><button class="b2" onclick="cloudExcel(1).catch(x=>toast(x.message))">Save today\'s Excel now</button> <button class="b2" onclick="cloudDown()">Download Excel</button> <button class="bd" onclick="cloudForce()">Upload this browser\'s data to cloud</button></p>')}}
+{const s2=V.settings;V.settings=()=>{s2();if(!cadm())return;$('#m').insertAdjacentHTML('beforeend','<h3>Cloud (Supabase)</h3><p class="k">Changes save automatically to Supabase. The Excel file <b>latest.xlsx</b> (plus a dated copy) is updated in Storage bucket <b>daily-excel</b> after every change by anyone.</p><p><input id="gsu" placeholder="Google Script URL (ends with /exec)" style="width:100%"><br><input id="gsk" placeholder="Secret word" style="margin-top:6px"> <button class="b2" onclick="gsSave()">Save</button> <button class="b2" onclick="cloudSheet(1)">Send to Google Sheet now</button></p><p><button class="b2" onclick="cloudExcel(1).catch(x=>toast(x.message))">Save today\'s Excel now</button> <button class="b2" onclick="cloudDown()">Download Excel</button> <button class="bd" onclick="cloudForce()">Upload this browser\'s data to cloud</button></p>');const c=gsCfg();$('#gsu').value=c.url==='CHANGE-ME'?'':c.url;$('#gsk').value=c.key}}
 setInterval(cloudPull,60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)cloudPull()});
 
 boot();
