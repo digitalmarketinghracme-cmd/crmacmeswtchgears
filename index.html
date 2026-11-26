@@ -191,7 +191,7 @@ function askYes(){const f=window._askCb;window._askCb=null;$('#mo').innerHTML=''
 function toast(m){const t=document.createElement('div');t.textContent=m;t.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1b2433;color:#fff;padding:10px 16px;border-radius:8px;z-index:99;max-width:90vw';document.body.appendChild(t);setTimeout(()=>t.remove(),3200)}
 const seed=()=>({seq:{q:0,i:0,c:0,p:0,l:0},customers:[],products:[],leads:[],quotes:[],invoices:[]});
 let S;try{S=JSON.parse(localStorage.getItem('acme'))}catch(e){}if(!S)S=seed();
-const sv=()=>{try{localStorage.setItem('acme',JSON.stringify(S))}catch(e){}};
+const sv=()=>{try{localStorage.setItem('acme',JSON.stringify(S))}catch(e){}if(typeof cloudPush==='function')cloudPush()};
 const inr=n=>'₹'+(+n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fd=d=>d?d.split('-').reverse().join('-'):'';const today=()=>new Date().toISOString().slice(0,10);
 const e=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -450,10 +450,10 @@ try{const j=await sbFetch('/auth/v1/token?grant_type=password',{method:'POST',bo
 sbSave(sbSession(j));await sbProfile();await loadUsers();enter()}
 catch(x){sbSave(null);CU=null;m.textContent=/invalid login/i.test(x.message)?'Incorrect email or password.':/not confirmed/i.test(x.message)?'Please confirm your email first.':x.message;$('#lp').value='';lbusy(false)}
 return false}
-function enter(){const d=$('#lg');if(d)d.remove();document.body.classList.remove('locked');
+async function enter(){try{await cloudLoad()}catch(x){CON=false;cbadge('⚠ Cloud sync off: '+x.message,1)}const d=$('#lg');if(d)d.remove();document.body.classList.remove('locked');
 ['settings','customers'].forEach(k=>{const st=document.querySelector('#nav a[data-k='+k+']');if(st)st.style.display=ME().eng?'none':''});
 let b=$('#ub');if(b)b.remove();$('#nav').insertAdjacentHTML('beforeend',`<div id="ub">${e(CU.u)}<br>${e(CU.r)}<br><a onclick="logout()">Sign out</a></div>`);go('dash')}
-async function logout(){try{const t=SBS&&await sbToken();if(t)await sbFetch('/auth/v1/logout',{method:'POST'},t)}catch(x){}sbSave(null);USERS=[];refreshUOPT();showLogin()}
+async function logout(){if(CON){clearTimeout(CT);CT=null;try{await cloudFlush()}catch(x){}}CON=false;try{const t=SBS&&await sbToken();if(t)await sbFetch('/auth/v1/logout',{method:'POST'},t)}catch(x){}sbSave(null);USERS=[];refreshUOPT();showLogin()}
 async function boot(){let s=null;try{s=JSON.parse(localStorage.getItem('acme_sb'))}catch(z){}
 if(s&&s.refresh){SBS=s;try{if(!await sbToken())throw 0;await sbProfile();await loadUsers();enter();return}catch(x){sbSave(null);CU=null}}
 showLogin()}
@@ -596,6 +596,89 @@ function erExport(kind){if(ME().eng){toast('Only admins can export reports');ret
 V.ereports=ereports;
 (()=>{const q=document.querySelector('#nav a[data-k=quotes]');if(q&&!document.querySelector('#nav a[data-k=ereports]'))q.insertAdjacentHTML('afterend','<a data-k="ereports" onclick="go(\'ereports\')">🧑‍🔧 Engineers Report</a>')})();
 
+
+/* ===== CLOUD SYNC: Supabase table crm_data + daily Excel in Storage bucket daily-excel ===== */
+let CSIG={},CBASEM={},CVER={},CT=null,CBUSY=false,CON=false,CFORCE=false;
+const CSEQ={leads:'l',customers:'c',quotes:'q',invoices:'i',purchases:'p',products:'products',ereports:'er'};
+const csig=v=>JSON.stringify(v===undefined?null:v);
+const cadm=()=>!ME().eng;
+const cdiff=(a,b)=>!a||!b||Date.parse(a)!==Date.parse(b);
+const cempty=v=>Array.isArray(v)?!v.length:(v&&typeof v==='object')?Object.values(v).every(x=>!x):!v;
+const cday=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+function cbadge(t,bad){let b=$('#cb');if(!b){b=document.createElement('div');b.id='cb';b.style.cssText='position:fixed;right:12px;bottom:10px;font-size:12px;padding:4px 10px;border-radius:12px;color:#fff;z-index:50;opacity:.9;max-width:80vw';document.body.appendChild(b)}b.textContent=t;b.style.background=bad?'#d6403a':'#1b2433'}
+function cmark(k){CSIG[k]=csig(S[k]);const v=S[k];CBASEM[k]=Array.isArray(v)?new Map(v.map(x=>[x&&x.id,csig(x)])):new Map()}
+function cmerge(k,cv){const lv=S[k];
+ if(Array.isArray(lv)&&Array.isArray(cv)){const bm=CBASEM[k]||new Map(),cm=new Map(cv.map(c=>[c.id,c])),out=[],used=new Set();
+  let mx=Math.max(0,...lv.map(x=>+x.id||0),...cv.map(x=>+x.id||0));
+  lv.forEach(l=>{const b=bm.get(l.id),c=cm.get(l.id);
+   if(b===undefined){if(c!==undefined&&csig(c)===csig(l))used.add(l.id);else if(c!==undefined)l.id=++mx;out.push(l)}
+   else if(c===undefined){if(csig(l)!==b)out.push(l)}
+   else{used.add(l.id);out.push(csig(l)===b?c:l)}});
+  cv.forEach(c=>{if(!used.has(c.id)&&!bm.has(c.id))out.push(c)});
+  S[k]=out;if(CSEQ[k]&&S.seq)S.seq[CSEQ[k]]=Math.max(S.seq[CSEQ[k]]||0,mx)}
+ else if(k==='seq'&&cv&&typeof cv==='object'){const o={...cv};Object.keys(lv||{}).forEach(x=>{o[x]=Math.max(+o[x]||0,+lv[x]||0)});S[k]=o}
+ else S[k]=cv}
+function crender(){if(typeof go!=='function'||typeof cur==='undefined')return;if($('#mo')&&$('#mo').innerHTML.trim())return;if(/INPUT|TEXTAREA|SELECT/.test((document.activeElement||{}).tagName||''))return;go(cur)}
+const clocal=()=>{try{localStorage.setItem('acme',JSON.stringify(S))}catch(x){}};
+async function cloudLoad(){
+ const rows=await sbRest('crm_data?select=key,value,updated_at&key=neq.overall_report');
+ if(!rows.length&&!cadm()){CON=false;cbadge('⚠ Cloud is empty – ask the admin to open the CRM once',1);return}
+ if(rows.length){try{if(!localStorage.getItem('acme_precloud'))localStorage.setItem('acme_precloud',JSON.stringify(S))}catch(x){}
+  rows.forEach(r=>{S[r.key]=r.value;CVER[r.key]=r.updated_at;});ext();rows.forEach(r=>cmark(r.key))}
+ clocal();CON=true;cbadge('☁ Cloud sync on');
+ if(Object.keys(S).some(k=>!(k in CSIG)))cloudPush()}
+function cloudPush(){if(!CON||!SBS)return;clearTimeout(CT);CT=setTimeout(()=>{CT=null;cloudFlush()},2500)}
+async function cloudFlush(){
+ if(!CON||!SBS)return;
+ if(CBUSY){CT=setTimeout(()=>{CT=null;cloudFlush()},1500);return}
+ CBUSY=true;
+ try{
+  const ch=Object.keys(S).filter(k=>S[k]!==undefined&&csig(S[k])!==CSIG[k]&&!(!cadm()&&!(k in CSIG)&&cempty(S[k])));
+  if(ch.length){
+   let merged=false;
+   if(!CFORCE){const cur0=await sbRest('crm_data?select=key,value,updated_at&key=in.('+ch.join(',')+')');
+    cur0.forEach(r=>{if(cdiff(CVER[r.key],r.updated_at)){cmerge(r.key,r.value);CVER[r.key]=r.updated_at;merged=true}})}
+   const now=new Date().toISOString();
+   await sbRest('crm_data?on_conflict=key',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(ch.map(k=>({key:k,value:S[k],updated_by:CU.u,updated_at:now})))});
+   ch.forEach(k=>{cmark(k);CVER[k]=now});clocal();
+   cbadge('☁ Saved '+new Date().toLocaleTimeString());
+   if(merged)crender();
+   if(cadm()){try{await cloudExcel()}catch(x){cbadge('⚠ Data saved, Excel upload failed: '+x.message,1)}}
+  }
+ }catch(x){cbadge('⚠ Cloud save failed: '+x.message,1)}
+ CBUSY=false}
+async function cloudPull(){
+ if(!CON||!SBS||CT||CBUSY)return;
+ try{const meta=await sbRest('crm_data?select=key,updated_at&key=neq.overall_report');
+  const ks=meta.filter(r=>cdiff(CVER[r.key],r.updated_at)).map(r=>r.key);if(!ks.length)return;
+  const rows=await sbRest('crm_data?select=key,value,updated_at&key=in.('+ks.join(',')+')');
+  rows.forEach(r=>{if(csig(S[r.key])===CSIG[r.key]){S[r.key]=r.value;cmark(r.key)}else cmerge(r.key,r.value);CVER[r.key]=r.updated_at});
+  ext();clocal();cbadge('☁ Updated '+new Date().toLocaleTimeString());crender();
+  if(cadm()){try{await cloudExcel()}catch(x){}}
+ }catch(x){}}
+function cmetrics(){const A=v=>v||[],cnt=(a,f)=>{const m={};a.forEach(x=>{const k=f(x)||'—';m[k]=(m[k]||0)+1});return m};
+ const inv=S.invoices.reduce((a,i)=>a+calc(i.items,i.intra).grand,0),rec=S.invoices.reduce((a,i)=>a+paid(i),0),qv=S.quotes.reduce((a,q)=>a+calc(q.items,intra(cust(q.cid))).grand,0),R=n=>Math.round(n*100)/100;
+ const rows=[['Report date',cday()],['Total leads',S.leads.length],['Total customers',S.customers.length],['Total quotations',S.quotes.length],['Quotation value',R(qv)],['Total invoices',S.invoices.length],['Invoiced amount',R(inv)],['Payments received',R(rec)],['Outstanding',R(inv-rec)],['Engineer reports',A(S.ereports).length]];
+ const sec=(t,m)=>Object.entries(m).forEach(([k,v])=>rows.push([t+': '+k,v]));
+ sec('Leads by status',cnt(S.leads,x=>x.status));sec('Quotations by status',cnt(S.quotes,x=>x.status));sec('Engineer reports by status',cnt(A(S.ereports),x=>x.status));sec('Engineer reports by engineer',cnt(A(S.ereports),x=>x.owner));return rows}
+function cwb(){const wb=XLSX.utils.book_new(),add=(n,h,r)=>XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([h,...r]),n),f=(v,t)=>t==='date'?fd(v):(v??'');
+ add('Leads',LF.map(x=>x[1]),S.leads.map(r=>LF.map(x=>f(r[x[0]],x[2]))));
+ add('Customers',CF.map(x=>x[1]),S.customers.map(r=>CF.map(x=>f(r[x[0]],x[2]))));
+ add('Quotations',['Quotation No','Date','Customer','Engineer','Products','Total','Status'],S.quotes.map(q=>[q.no,fd(q.date),cust(q.cid).name,q.owner||'Unassigned',q.items.map(i=>i.desc+' x '+i.qty).join('; '),calc(q.items,intra(cust(q.cid))).grand,q.status]));
+ add('Engineers Report',['Engineer','Customer company','Area','Phone','Product','Status','Visit date','Remarks'],(S.ereports||[]).map(r=>[r.owner,r.company,typeof arx==='function'?arx(r.area):(r.area||''),r.phone||'',r.product,r.status,fd(r.visit),r.remarks||'']));
+ const iv=DATA.invoices();add('Invoices',iv[1],iv[2]);
+ add('Overall Report',['Item','Value'],cmetrics());return wb}
+async function cloudExcel(manual){
+ if(!window.XLSX){if(manual)toast('Excel library did not load');return}
+ const data=XLSX.write(cwb(),{bookType:'xlsx',type:'array'}),t=await sbToken(),name=cday()+'.xlsx';
+ const r=await fetch(SB_URL+'/storage/v1/object/daily-excel/'+name,{method:'POST',headers:{apikey:SB_KEY,Authorization:'Bearer '+t,'x-upsert':'true','Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'},body:data});
+ if(!r.ok){let m='';try{m=(await r.json()).message}catch(x){}throw new Error(m||('status '+r.status))}
+ await sbRest('crm_data?on_conflict=key',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify([{key:'overall_report',value:{date:cday(),metrics:cmetrics()},updated_by:CU.u,updated_at:new Date().toISOString()}])});
+ if(manual)toast('Excel saved in cloud: '+name)}
+function cloudDown(){if(!window.XLSX){toast('Excel library did not load');return}savef('ACME-CRM-'+cday()+'.xlsx',XLSX.write(cwb(),{bookType:'xlsx',type:'array'}))}
+function cloudForce(){ask('Replace ALL cloud data with the data in this browser?',async()=>{CON=true;CFORCE=true;CSIG={};try{await cloudFlush();toast('Uploaded to cloud')}finally{CFORCE=false}})}
+{const s2=V.settings;V.settings=()=>{s2();if(!cadm())return;$('#m').insertAdjacentHTML('beforeend','<h3>Cloud (Supabase)</h3><p class="k">Changes save automatically to Supabase. Today\'s Excel file is kept updated in Storage bucket <b>daily-excel</b>.</p><p><button class="b2" onclick="cloudExcel(1).catch(x=>toast(x.message))">Save today\'s Excel now</button> <button class="b2" onclick="cloudDown()">Download Excel</button> <button class="bd" onclick="cloudForce()">Upload this browser\'s data to cloud</button></p>')}}
+setInterval(cloudPull,60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)cloudPull()});
 
 boot();
 </script><script>/* visual effects only: dashboard hero, count-up, tilt, ripple, theme toggle, avatar */
