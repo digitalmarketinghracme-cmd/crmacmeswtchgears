@@ -54,7 +54,7 @@ h3{font-weight:700}
 .g>.c:nth-child(5)::before{background:linear-gradient(180deg,#ef4444,#f43f5e)}.g>.c:nth-child(5)::after{background:radial-gradient(circle,rgba(239,68,68,.18),transparent 70%)}
 .c[data-k]{padding-right:56px}
 .c[data-k]>.k::after{position:absolute;right:16px;top:14px;font-size:26px;animation:bob 3s ease-in-out infinite}
-.c[data-k="Leads"]>.k::after{content:''}.c[data-k="Pending quotations"]>.k::after{content:'⏳'}.c[data-k="Approved quotations"]>.k::after{content:''}.c[data-k="Products"]>.k::after{content:'📦'}.c[data-k="Low stock"]>.k::after{content:'⚠️'}
+.c[data-k="Leads"]>.k::after{content:''}.c[data-k="Pending quotations"]>.k::after{content:''}.c[data-k="Approved quotations"]>.k::after{content:''}.c[data-k="Products"]>.k::after{content:''}.c[data-k="Low stock"]>.k::after{content:''}
 @keyframes bob{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-5px) rotate(6deg)}}
 .k{color:var(--mu);font-size:12px;font-weight:600;letter-spacing:.2px}
 .v{font-size:30px;font-weight:800;margin-top:4px;letter-spacing:-.8px;background:linear-gradient(90deg,var(--tx),var(--bl));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;font-variant-numeric:tabular-nums}
@@ -160,7 +160,7 @@ h3{position:relative;padding-left:12px}h3::before{content:'';position:absolute;l
 .cat b{word-break:break-word}
 .cat .ca{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto;padding-top:10px}
 .cat .ca button{padding:8px 12px}
-.c[data-k="Important leads"]>.k::after{content:'⭐'}.g>.c:nth-child(6)::before{background:linear-gradient(180deg,#f59e0b,#ef4444)}
+.c[data-k="Important leads"]>.k::after{content:''}.g>.c:nth-child(6)::before{background:linear-gradient(180deg,#f59e0b,#ef4444)}
 </style><script>
 /* Download fix: defined first, so the older code below it is skipped */
 window.claude={use:async n=>n==='downloads'?{save:async({filename,data})=>{
@@ -213,7 +213,7 @@ const pad=n=>String(n).padStart(3,'0');
 const V={dash,leads:()=>list('leads','Leads & Enquiries',['company','contact','phone','req','src','status','follow','area','owner','imp'],LF,{follow:fd,status:tag,area:areaTag,imp:impTag}),customers:()=>list('customers','Customers',['name','contact','mobile','gstin','state','area','credit'],CF,{credit:inr,area:areaTag}),products,quotes,invoices};
 const AREAS=['Not set','CBE – Coimbatore','TM – Thirumudivakkam','TZ – Thiruvazhisai','TB – Tambaram','Amb – Ambattur','TML – Women’s SICO','ORA – Oragadam','GDY – Guindy','GPD – Gummidipoondi','SPR – Sriperumbudur','KLR – Kerala','PDY – Pondicherry','CGL – Chengalpattu','MM – Maraimalai Nagar','MWC – Mahindra World City','IRK – Irungattukottai','TRL – Thiruvallur'];
 var IMPO=false,AF='';
-const impTag=v=>v=='Yes'?'<span class="tag Follow-up">★ Important</span>':'';
+const impTag=v=>v=='Yes'?'<span class="tag Follow-up"> Important</span>':'';
 const areaTag=v=>(!v||v==='Not set')?'':e(v);
 const arx=a=>a&&a!=='Not set'?a:'';
 const UOPT=['Unassigned'];
@@ -597,7 +597,7 @@ async function cmig(){if(ME().eng)return;try{const d=await new Promise((res,rej)
  toast(n+' catalog(s) moved to cloud');V.catalogs()}catch(x){toast('No old catalogs found in this browser')}}
 let CQ='',CL=[];const CB={};
 const csz=n=>n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';
-const cico=m=>{const x=(m.name.split('.').pop()||'').toLowerCase();return x=='pdf'?'':['xls','xlsx','csv'].includes(x)?'':['doc','docx'].includes(x)?'':['ppt','pptx'].includes(x)?'📙':['jpg','jpeg','png','webp'].includes(x)?'🖼️':['zip','rar'].includes(x)?'🗜️':'📄'};
+const cico=m=>{const x=(m.name.split('.').pop()||'').toLowerCase();return x=='pdf'?'':['xls','xlsx','csv'].includes(x)?'':['doc','docx'].includes(x)?'':['ppt','pptx'].includes(x)?'':['jpg','jpeg','png','webp'].includes(x)?'🖼️':['zip','rar'].includes(x)?'🗜️':'📄'};
 V.catalogs=async()=>{const adm=!ME().eng;
 $('#m').innerHTML=`<h2>Catalogs</h2><div class="bar"><input id="cq" placeholder="Search catalogs…" value="${e(CQ)}" oninput="CQ=this.value;crows()">${adm?'<button onclick="cup()">⬆ Upload catalog</button><button class="b2" onclick="cmig()">☁ Move old catalogs</button>':''}</div><div class="g cg" id="cl"></div><p class="k" id="cc"></p>`;
 try{CL=await CDB.list()}catch(x){CL=[];toast('Catalogs: '+x.message)}crows()};
@@ -625,7 +625,7 @@ function cdel(id){if(ME().eng)return;const m=CL.find(x=>x.id==id);if(!m)return;a
 (()=>{const r=document.querySelector('#nav a[data-k=reports]');if(r&&!document.querySelector('#nav a[data-k=catalogs]'))r.insertAdjacentHTML('beforebegin','<a data-k="catalogs" onclick="go(\'catalogs\')">📚 Catalogs</a>')})();
 /* ===== v2: areas, important leads, full Excel exports, customer removal ===== */
 const FF=k=>FM[k].filter(f=>!(ME().eng&&f[0]==='imp'));
-(()=>{const r=document.querySelector('#nav a[data-k=leads]');if(r&&!document.querySelector('#nav a[data-k=customers]'))r.insertAdjacentHTML('afterend','<a data-k="customers" onclick="go(\'customers\')">👥 Customers</a>')})();
+(()=>{const r=document.querySelector('#nav a[data-k=leads]');if(r&&!document.querySelector('#nav a[data-k=customers]'))r.insertAdjacentHTML('afterend','<a data-k="customers" onclick="go(\'customers\')"> Customers</a>')})();
 function limp(id){if(ME().eng)return;const l=S.leads.find(x=>x.id==id);if(!l)return;l.imp=l.imp=='Yes'?'No':'Yes';sv();toast(l.imp=='Yes'?'Marked as important lead':'Removed from important leads');go('leads')}
 function qimp(id){if(ME().eng)return;const q=S.quotes.find(x=>x.id==id);if(!q)return;
 let l=q.lead&&S.leads.find(x=>x.id==q.lead);
