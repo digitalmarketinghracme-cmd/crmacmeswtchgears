@@ -189,6 +189,9 @@ window.claude=window.claude||{use:async n=>n==='downloads'?{save:async({filename
 <script>
 const CO={n:'ACME SWITCHGEARS',a:'107, Angappa Naicken Street, George Town, Chennai, Tamil Nadu – 600001',g:'33AASFA3221F1ZU',p:'+91-44-42061113 / 42061114 / 43851115',e:'acmeswitchgears@ymail.com'};
 const $=s=>document.querySelector(s);
+/* Declare the current-user state before any CRM functions can reference it. */
+let USERS=[],CU=null,SBS=null;
+function ME(){return CU?{u:CU.u,r:CU.r,eng:CU.r==='Engineer'}:{u:'',r:'',eng:true};}
 function ask(msg,cb){window._askCb=cb;$('#mo').innerHTML=`<div class="mo"><div class="mb" style="max-width:440px"><h3>Please confirm</h3><p>${msg}</p><p><button class="bd" onclick="askYes()">Yes, continue</button> <button class="b2" onclick="$('#mo').innerHTML=''">Cancel</button></p></div></div>`}
 function askYes(){const f=window._askCb;window._askCb=null;$('#mo').innerHTML='';if(f)f()}
 function toast(m){const t=document.createElement('div');t.textContent=m;t.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1b2433;color:#fff;padding:10px 16px;border-radius:8px;z-index:99;max-width:90vw';document.body.appendChild(t);setTimeout(()=>t.remove(),3200)}
@@ -222,7 +225,7 @@ const CF=[['name','Customer / company'],['contact','Contact person'],['mobile','
 const PF=[['code','Product code'],['name','Product name'],['brand','Brand',['LS Electric','Autonics','Delta','Kinco','Koino','Neptune','Bals','Polycab','Qlight','Schmersal','Schneider','Other']],['cat','Category',['VFD / Drives','HMI & Touch Screens','HMI with PLC','PLC & I/O Modules','Servo Drives','Servo Motors','Proximity Sensors','Photoelectric Sensors','Rotary Encoders','Temperature Controllers','Fiber Optic Sensors','Displacement Sensors','LIDAR Sensors','Relays','Industrial Switches','Fuses','Cable Lugs','Industrial Cables','DIN Rails','Automation Components']],['hsn','HSN'],['gst','GST %','number'],['buy','Purchase price','number'],['sell','Selling price','number'],['stock','Stock','number'],['min','Min stock','number'],['unit','Unit']];
 let cur='dash';
 function go(k){if(ME().eng&&(k==='settings'||k==='customers'))k='dash';if(k!==cur){IMPO=false;AF=''}cur=k;document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('on',a.dataset.k==k));$('#m').innerHTML='';V[k]()}
-const NAV=[['dash','📊 Dashboard'],['leads','🎯 Leads'],['products','📦 Products'],['quotes','📝 Quotations'],['reports','📈 Reports'],['settings','⚙️ Settings']];
+const NAV=[['dash',' Dashboard'],['leads',' Leads'],['products','Products'],['quotes',' Quotations'],['reports','📈 Reports'],['settings','⚙️ Settings']];
 $('#nav').insertAdjacentHTML('beforeend',NAV.map(n=>`<a data-k="${n[0]}" onclick="go('${n[0]}')">${n[1]}</a>`).join(''));
 function dash(){const sales=S.invoices.reduce((a,i)=>a+calc(i.items,i.intra).grand,0),rec=S.invoices.reduce((a,i)=>a+paid(i),0);
 const T={Customers:'customers',Leads:'leads','Pending quotations':'quotes','Approved quotations':'quotes','Total sales':'invoices',Outstanding:'invoices',Products:'products','Low stock':'products','Important leads':'leads'};const card=(k,v)=>`<div class="c" data-k="${k}" style="cursor:pointer" onclick="go('${T[k]}')"><div class="k">${k}</div><div class="v">${v}</div></div>`;
@@ -521,9 +524,7 @@ if(applyNoHSN())sv();
 
 /* ===== LOGIN & ROLES (Supabase Auth) ===== */
 const SB_URL='https://nbkyfjfgpzwnabfeorkx.supabase.co',SB_KEY='sb_publishable_ilyGQd50WNvT4OgFaqlqwA_VPYjq1gm';
-let USERS=[],CU=null,SBS=null;
 const refreshUOPT=()=>UOPT.splice(0,UOPT.length,'Unassigned',...USERS.filter(u=>u.r==='Engineer').map(u=>u.u));
-const ME=()=>CU?{u:CU.u,r:CU.r,eng:CU.r==='Engineer'}:{u:'',r:'',eng:true};
 const VIS=k=>ME().eng&&(k==='leads'||k==='quotes')?S[k].filter(x=>x.owner===ME().u):S[k];
 const CE=k=>!ME().eng||k==='leads';
 const CD=()=>!ME().eng;
@@ -597,7 +598,7 @@ async function cmig(){if(ME().eng)return;try{const d=await new Promise((res,rej)
  toast(n+' catalog(s) moved to cloud');V.catalogs()}catch(x){toast('No old catalogs found in this browser')}}
 let CQ='',CL=[];const CB={};
 const csz=n=>n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';
-const cico=m=>{const x=(m.name.split('.').pop()||'').toLowerCase();return x=='pdf'?'📕':['xls','xlsx','csv'].includes(x)?'📗':['doc','docx'].includes(x)?'📘':['ppt','pptx'].includes(x)?'📙':['jpg','jpeg','png','webp'].includes(x)?'🖼️':['zip','rar'].includes(x)?'🗜️':'📄'};
+const cico=m=>{const x=(m.name.split('.').pop()||'').toLowerCase();return x=='pdf'?'':['xls','xlsx','csv'].includes(x)?'':['doc','docx'].includes(x)?'📘':['ppt','pptx'].includes(x)?'📙':['jpg','jpeg','png','webp'].includes(x)?'🖼️':['zip','rar'].includes(x)?'🗜️':'📄'};
 V.catalogs=async()=>{const adm=!ME().eng;
 $('#m').innerHTML=`<h2>Catalogs</h2><div class="bar"><input id="cq" placeholder="Search catalogs…" value="${e(CQ)}" oninput="CQ=this.value;crows()">${adm?'<button onclick="cup()">⬆ Upload catalog</button><button class="b2" onclick="cmig()">☁ Move old catalogs</button>':''}</div><div class="g cg" id="cl"></div><p class="k" id="cc"></p>`;
 try{CL=await CDB.list()}catch(x){CL=[];toast('Catalogs: '+x.message)}crows()};
@@ -622,10 +623,10 @@ const f=new File([b],m.name,{type:m.type||b.type||'application/octet-stream'});
 if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f],title:m.title,text:m.title+' – ACME Switchgears'})}catch(x){if(x&&x.name==='AbortError')return;if(x&&x.name==='NotAllowedError'&&!warm){toast('File is ready – tap Share once more');return}toast('Sharing failed – downloading instead');cdl(id)}}
 else{toast('Sharing is not supported on this browser – downloading so you can attach it in WhatsApp or email');cdl(id)}}
 function cdel(id){if(ME().eng)return;const m=CL.find(x=>x.id==id);if(!m)return;ask('Delete catalog “'+e(m.title)+'”? This cannot be undone.',async()=>{if(ME().eng)return;await CDB.del(id);delete CB[id];V.catalogs()})}
-(()=>{const r=document.querySelector('#nav a[data-k=reports]');if(r&&!document.querySelector('#nav a[data-k=catalogs]'))r.insertAdjacentHTML('beforebegin','<a data-k="catalogs" onclick="go(\'catalogs\')">📚 Catalogs</a>')})();
+(()=>{const r=document.querySelector('#nav a[data-k=reports]');if(r&&!document.querySelector('#nav a[data-k=catalogs]'))r.insertAdjacentHTML('beforebegin','<a data-k="catalogs" onclick="go(\'catalogs\')"> Catalogs</a>')})();
 /* ===== v2: areas, important leads, full Excel exports, customer removal ===== */
 const FF=k=>FM[k].filter(f=>!(ME().eng&&f[0]==='imp'));
-(()=>{const r=document.querySelector('#nav a[data-k=leads]');if(r&&!document.querySelector('#nav a[data-k=customers]'))r.insertAdjacentHTML('afterend','<a data-k="customers" onclick="go(\'customers\')">👥 Customers</a>')})();
+(()=>{const r=document.querySelector('#nav a[data-k=leads]');if(r&&!document.querySelector('#nav a[data-k=customers]'))r.insertAdjacentHTML('afterend','<a data-k="customers" onclick="go(\'customers\')"> Customers</a>')})();
 function limp(id){if(ME().eng)return;const l=S.leads.find(x=>x.id==id);if(!l)return;l.imp=l.imp=='Yes'?'No':'Yes';sv();toast(l.imp=='Yes'?'Marked as important lead':'Removed from important leads');go('leads')}
 function qimp(id){if(ME().eng)return;const q=S.quotes.find(x=>x.id==id);if(!q)return;
 let l=q.lead&&S.leads.find(x=>x.id==q.lead);
@@ -715,7 +716,7 @@ ask('Remove <b>'+ids.length+'</b> selected report(s)? This cannot be undone.',()
 DATA.ereports=()=>['Engineers Report',['Engineer','Customer company','Area','Phone','Product','Status','Visit date','Remarks'],erFiltered().map(r=>[r.owner,r.company,arx(r.area),r.phone||'',r.product,r.status,fd(r.visit),r.remarks||''])];
 function erExport(kind){if(ME().eng){toast('Only admins can export reports');return}if(!erFiltered().length){toast('No reports to export');return}ex(kind,'ereports')}
 V.ereports=ereports;
-(()=>{const q=document.querySelector('#nav a[data-k=quotes]');if(q&&!document.querySelector('#nav a[data-k=ereports]'))q.insertAdjacentHTML('afterend','<a data-k="ereports" onclick="go(\'ereports\')">🧑‍🔧 Engineers Report</a>')})();
+(()=>{const q=document.querySelector('#nav a[data-k=quotes]');if(q&&!document.querySelector('#nav a[data-k=ereports]'))q.insertAdjacentHTML('afterend','<a data-k="ereports" onclick="go(\'ereports\')"> Engineers Report</a>')})();
 
 
 /* ===== CLOUD SYNC: Supabase table crm_data + daily Excel in Storage bucket daily-excel ===== */
