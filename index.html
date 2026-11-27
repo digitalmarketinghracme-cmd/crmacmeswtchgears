@@ -162,23 +162,45 @@ h3{position:relative;padding-left:12px}h3::before{content:'';position:absolute;l
 .cat .ca button{padding:8px 12px}
 .c[data-k="Important leads"]>.k::after{content:'⭐'}.g>.c:nth-child(6)::before{background:linear-gradient(180deg,#f59e0b,#ef4444)}
 </style><script>
-/* Download fix: defined first, so the older code below it is skipped */
+/* Download fix v2 (APK / WebView / Chrome): share sheet first, then direct download, then manual save box */
 window.claude={use:async n=>n==='downloads'?{save:async({filename,data})=>{
   const ext=(filename.split('.').pop()||'').toLowerCase();
   const type={pdf:'application/pdf',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',json:'application/json',csv:'text/csv'}[ext]||'application/octet-stream';
-  const b=data instanceof Blob?data:new Blob([data],{type});
-  const isIOS=/iPhone|iPad|iPod/i.test(navigator.userAgent);
-  if(isIOS&&navigator.canShare){
-    try{const f=new File([b],filename,{type:b.type||type});
-      if(navigator.canShare({files:[f]})){await navigator.share({files:[f],title:filename});return{status:'shared'}}}
-    catch(e){if(e&&e.name==='AbortError')return{status:'cancelled'}}
-  }
-  const url=URL.createObjectURL(b);
-  const a=document.createElement('a');a.href=url;a.download=filename;a.rel='noopener';
-  document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),60000);
-  if(typeof toast==='function')toast('Saved: '+filename+' (check your Downloads folder)');
-  return{status:'saved'}
+  const b=data instanceof Blob?(data.type?data:new Blob([data],{type})):new Blob([data],{type});
+  const say=m=>{if(typeof toast==='function')toast(m)};
+  /* 1. Share sheet: user picks "Save to Files / Drive / WhatsApp / Print" */
+  try{
+    if(navigator.canShare&&navigator.share){
+      const f=new File([b],filename,{type:b.type||type});
+      if(navigator.canShare({files:[f]})){await navigator.share({files:[f],title:filename});return{status:'shared'}}
+    }
+  }catch(e){if(e&&e.name==='AbortError')return{status:'cancelled'}}
+  /* 2. Normal browser download */
+  let ok=false;
+  try{
+    const url=URL.createObjectURL(b);
+    const a=document.createElement('a');a.href=url;a.download=filename;a.rel='noopener';a.style.display='none';
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),60000);ok=true;
+  }catch(e){}
+  /* 3. Always show a manual box too, in case the app (WebView) blocks downloads */
+  try{
+    const rd=new FileReader();
+    rd.onload=()=>{
+      const old=document.getElementById('dlbox');if(old)old.remove();
+      const d=document.createElement('div');d.id='dlbox';
+      d.style.cssText='position:fixed;left:10px;right:10px;bottom:10px;z-index:99999;background:#14233f;color:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 8px 30px rgba(0,0,0,.4);font:14px system-ui,sans-serif';
+      d.innerHTML='<div style="margin-bottom:8px"><b>'+filename.replace(/</g,'&lt;')+'</b><br><span style="opacity:.8;font-size:12px">If it did not download, tap Save / Open below.</span></div>'
+       +'<a href="'+rd.result+'" download="'+filename.replace(/"/g,'')+'" style="display:inline-block;background:#2563eb;color:#fff;padding:9px 16px;border-radius:8px;text-decoration:none;margin-right:8px">⬇ Save</a>'
+       +'<a href="'+rd.result+'" target="_blank" style="display:inline-block;background:#0f766e;color:#fff;padding:9px 16px;border-radius:8px;text-decoration:none;margin-right:8px">Open</a>'
+       +'<button id="dlx" style="background:transparent;color:#fff;border:1px solid #ffffff55;border-radius:8px;padding:8px 14px">Close</button>';
+      document.body.appendChild(d);
+      document.getElementById('dlx').onclick=()=>d.remove();
+      setTimeout(()=>{if(d.parentNode)d.remove()},25000);
+    };
+    rd.readAsDataURL(b);
+  }catch(e){}
+  return{status:ok?'saved':'manual'}
 }}:null};
 window.addEventListener('unhandledrejection',ev=>{if(typeof toast==='function')toast('Error: '+((ev.reason&&ev.reason.message)||ev.reason))});
 window.addEventListener('error',ev=>{if(typeof toast==='function')toast('Error: '+ev.message)});
