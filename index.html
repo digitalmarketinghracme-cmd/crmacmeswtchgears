@@ -597,7 +597,7 @@ async function cmig(){if(ME().eng)return;try{const d=await new Promise((res,rej)
  toast(n+' catalog(s) moved to cloud');V.catalogs()}catch(x){toast('No old catalogs found in this browser')}}
 let CQ='',CL=[];const CB={};
 const csz=n=>n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';
-const cico=m=>{const x=(m.name.split('.').pop()||'').toLowerCase();return x=='pdf'?'':['xls','xlsx','csv'].includes(x)?'':['doc','docx'].includes(x)?'':['ppt','pptx'].includes(x)?'':['jpg','jpeg','png','webp'].includes(x)?'🖼️':['zip','rar'].includes(x)?'🗜️':'📄'};
+const cico=m=>{const x=(m.name.split('.').pop()||'').toLowerCase();return x=='pdf'?'':['xls','xlsx','csv'].includes(x)?'':['doc','docx'].includes(x)?'':['ppt','pptx'].includes(x)?'':['jpg','jpeg','png','webp'].includes(x)?'':['zip','rar'].includes(x)?'🗜️':'📄'};
 V.catalogs=async()=>{const adm=!ME().eng;
 $('#m').innerHTML=`<h2>Catalogs</h2><div class="bar"><input id="cq" placeholder="Search catalogs…" value="${e(CQ)}" oninput="CQ=this.value;crows()">${adm?'<button onclick="cup()">⬆ Upload catalog</button><button class="b2" onclick="cmig()">☁ Move old catalogs</button>':''}</div><div class="g cg" id="cl"></div><p class="k" id="cc"></p>`;
 try{CL=await CDB.list()}catch(x){CL=[];toast('Catalogs: '+x.message)}crows()};
@@ -622,7 +622,7 @@ const f=new File([b],m.name,{type:m.type||b.type||'application/octet-stream'});
 if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f],title:m.title,text:m.title+' – ACME Switchgears'})}catch(x){if(x&&x.name==='AbortError')return;if(x&&x.name==='NotAllowedError'&&!warm){toast('File is ready – tap Share once more');return}toast('Sharing failed – downloading instead');cdl(id)}}
 else{toast('Sharing is not supported on this browser – downloading so you can attach it in WhatsApp or email');cdl(id)}}
 function cdel(id){if(ME().eng)return;const m=CL.find(x=>x.id==id);if(!m)return;ask('Delete catalog “'+e(m.title)+'”? This cannot be undone.',async()=>{if(ME().eng)return;await CDB.del(id);delete CB[id];V.catalogs()})}
-(()=>{const r=document.querySelector('#nav a[data-k=reports]');if(r&&!document.querySelector('#nav a[data-k=catalogs]'))r.insertAdjacentHTML('beforebegin','<a data-k="catalogs" onclick="go(\'catalogs\')">📚 Catalogs</a>')})();
+(()=>{const r=document.querySelector('#nav a[data-k=reports]');if(r&&!document.querySelector('#nav a[data-k=catalogs]'))r.insertAdjacentHTML('beforebegin','<a data-k="catalogs" onclick="go(\'catalogs\')"> Catalogs</a>')})();
 /* ===== v2: areas, important leads, full Excel exports, customer removal ===== */
 const FF=k=>FM[k].filter(f=>!(ME().eng&&f[0]==='imp'));
 (()=>{const r=document.querySelector('#nav a[data-k=leads]');if(r&&!document.querySelector('#nav a[data-k=customers]'))r.insertAdjacentHTML('afterend','<a data-k="customers" onclick="go(\'customers\')"> Customers</a>')})();
@@ -715,7 +715,7 @@ ask('Remove <b>'+ids.length+'</b> selected report(s)? This cannot be undone.',()
 DATA.ereports=()=>['Engineers Report',['Engineer','Customer company','Area','Phone','Product','Status','Visit date','Remarks'],erFiltered().map(r=>[r.owner,r.company,arx(r.area),r.phone||'',r.product,r.status,fd(r.visit),r.remarks||''])];
 function erExport(kind){if(ME().eng){toast('Only admins can export reports');return}if(!erFiltered().length){toast('No reports to export');return}ex(kind,'ereports')}
 V.ereports=ereports;
-(()=>{const q=document.querySelector('#nav a[data-k=quotes]');if(q&&!document.querySelector('#nav a[data-k=ereports]'))q.insertAdjacentHTML('afterend','<a data-k="ereports" onclick="go(\'ereports\')">🧑‍🔧 Engineers Report</a>')})();
+(()=>{const q=document.querySelector('#nav a[data-k=quotes]');if(q&&!document.querySelector('#nav a[data-k=ereports]'))q.insertAdjacentHTML('afterend','<a data-k="ereports" onclick="go(\'ereports\')"> Engineers Report</a>')})();
 
 
 /* ===== CLOUD SYNC: Supabase table crm_data + daily Excel in Storage bucket daily-excel ===== */
