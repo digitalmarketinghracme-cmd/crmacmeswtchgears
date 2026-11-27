@@ -54,7 +54,7 @@ h3{font-weight:700}
 .g>.c:nth-child(5)::before{background:linear-gradient(180deg,#ef4444,#f43f5e)}.g>.c:nth-child(5)::after{background:radial-gradient(circle,rgba(239,68,68,.18),transparent 70%)}
 .c[data-k]{padding-right:56px}
 .c[data-k]>.k::after{position:absolute;right:16px;top:14px;font-size:26px;animation:bob 3s ease-in-out infinite}
-.c[data-k="Leads"]>.k::after{content:'🎯'}.c[data-k="Pending quotations"]>.k::after{content:'⏳'}.c[data-k="Approved quotations"]>.k::after{content:'✅'}.c[data-k="Products"]>.k::after{content:'📦'}.c[data-k="Low stock"]>.k::after{content:'⚠️'}
+.c[data-k="Leads"]>.k::after{content:''}.c[data-k="Pending quotations"]>.k::after{content:'⏳'}.c[data-k="Approved quotations"]>.k::after{content:''}.c[data-k="Products"]>.k::after{content:'📦'}.c[data-k="Low stock"]>.k::after{content:'⚠️'}
 @keyframes bob{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-5px) rotate(6deg)}}
 .k{color:var(--mu);font-size:12px;font-weight:600;letter-spacing:.2px}
 .v{font-size:30px;font-weight:800;margin-top:4px;letter-spacing:-.8px;background:linear-gradient(90deg,var(--tx),var(--bl));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;font-variant-numeric:tabular-nums}
@@ -222,7 +222,7 @@ const CF=[['name','Customer / company'],['contact','Contact person'],['mobile','
 const PF=[['code','Product code'],['name','Product name'],['brand','Brand',['LS Electric','Autonics','Delta','Kinco','Koino','Neptune','Bals','Polycab','Qlight','Schmersal','Schneider','Other']],['cat','Category',['VFD / Drives','HMI & Touch Screens','HMI with PLC','PLC & I/O Modules','Servo Drives','Servo Motors','Proximity Sensors','Photoelectric Sensors','Rotary Encoders','Temperature Controllers','Fiber Optic Sensors','Displacement Sensors','LIDAR Sensors','Relays','Industrial Switches','Fuses','Cable Lugs','Industrial Cables','DIN Rails','Automation Components']],['hsn','HSN'],['gst','GST %','number'],['buy','Purchase price','number'],['sell','Selling price','number'],['stock','Stock','number'],['min','Min stock','number'],['unit','Unit']];
 let cur='dash';
 function go(k){if(ME().eng&&(k==='settings'||k==='customers'))k='dash';if(k!==cur){IMPO=false;AF=''}cur=k;document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('on',a.dataset.k==k));$('#m').innerHTML='';V[k]()}
-const NAV=[['dash','📊 Dashboard'],['leads','🎯 Leads'],['products','📦 Products'],['quotes','📝 Quotations'],['reports','📈 Reports'],['settings','⚙️ Settings']];
+const NAV=[['dash',' Dashboard'],['leads',' Leads'],['products',' Products'],['quotes',' Quotations'],['reports',' Reports'],['settings','⚙️ Settings']];
 $('#nav').insertAdjacentHTML('beforeend',NAV.map(n=>`<a data-k="${n[0]}" onclick="go('${n[0]}')">${n[1]}</a>`).join(''));
 function dash(){const sales=S.invoices.reduce((a,i)=>a+calc(i.items,i.intra).grand,0),rec=S.invoices.reduce((a,i)=>a+paid(i),0);
 const T={Customers:'customers',Leads:'leads','Pending quotations':'quotes','Approved quotations':'quotes','Total sales':'invoices',Outstanding:'invoices',Products:'products','Low stock':'products','Important leads':'leads'};const card=(k,v)=>`<div class="c" data-k="${k}" style="cursor:pointer" onclick="go('${T[k]}')"><div class="k">${k}</div><div class="v">${v}</div></div>`;
@@ -597,7 +597,7 @@ async function cmig(){if(ME().eng)return;try{const d=await new Promise((res,rej)
  toast(n+' catalog(s) moved to cloud');V.catalogs()}catch(x){toast('No old catalogs found in this browser')}}
 let CQ='',CL=[];const CB={};
 const csz=n=>n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';
-const cico=m=>{const x=(m.name.split('.').pop()||'').toLowerCase();return x=='pdf'?'📕':['xls','xlsx','csv'].includes(x)?'📗':['doc','docx'].includes(x)?'📘':['ppt','pptx'].includes(x)?'📙':['jpg','jpeg','png','webp'].includes(x)?'🖼️':['zip','rar'].includes(x)?'🗜️':'📄'};
+const cico=m=>{const x=(m.name.split('.').pop()||'').toLowerCase();return x=='pdf'?'':['xls','xlsx','csv'].includes(x)?'':['doc','docx'].includes(x)?'':['ppt','pptx'].includes(x)?'📙':['jpg','jpeg','png','webp'].includes(x)?'🖼️':['zip','rar'].includes(x)?'🗜️':'📄'};
 V.catalogs=async()=>{const adm=!ME().eng;
 $('#m').innerHTML=`<h2>Catalogs</h2><div class="bar"><input id="cq" placeholder="Search catalogs…" value="${e(CQ)}" oninput="CQ=this.value;crows()">${adm?'<button onclick="cup()">⬆ Upload catalog</button><button class="b2" onclick="cmig()">☁ Move old catalogs</button>':''}</div><div class="g cg" id="cl"></div><p class="k" id="cc"></p>`;
 try{CL=await CDB.list()}catch(x){CL=[];toast('Catalogs: '+x.message)}crows()};
