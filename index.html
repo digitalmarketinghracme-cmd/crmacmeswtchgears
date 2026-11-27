@@ -54,7 +54,7 @@ h3{font-weight:700}
 .g>.c:nth-child(5)::before{background:linear-gradient(180deg,#ef4444,#f43f5e)}.g>.c:nth-child(5)::after{background:radial-gradient(circle,rgba(239,68,68,.18),transparent 70%)}
 .c[data-k]{padding-right:56px}
 .c[data-k]>.k::after{position:absolute;right:16px;top:14px;font-size:26px;animation:bob 3s ease-in-out infinite}
-.c[data-k="Leads"]>.k::after{content:''}.c[data-k="Pending quotations"]>.k::after{content:''}.c[data-k="Approved quotations"]>.k::after{content:''}.c[data-k="Products"]>.k::after{content:''}.c[data-k="Low stock"]>.k::after{content:''}
+.c[data-k="Leads"]>.k::after{content:'🎯'}.c[data-k="Pending quotations"]>.k::after{content:'⏳'}.c[data-k="Approved quotations"]>.k::after{content:'✅'}.c[data-k="Products"]>.k::after{content:'📦'}.c[data-k="Low stock"]>.k::after{content:'⚠️'}
 @keyframes bob{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-5px) rotate(6deg)}}
 .k{color:var(--mu);font-size:12px;font-weight:600;letter-spacing:.2px}
 .v{font-size:30px;font-weight:800;margin-top:4px;letter-spacing:-.8px;background:linear-gradient(90deg,var(--tx),var(--bl));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;font-variant-numeric:tabular-nums}
@@ -160,7 +160,7 @@ h3{position:relative;padding-left:12px}h3::before{content:'';position:absolute;l
 .cat b{word-break:break-word}
 .cat .ca{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto;padding-top:10px}
 .cat .ca button{padding:8px 12px}
-.c[data-k="Important leads"]>.k::after{content:''}.g>.c:nth-child(6)::before{background:linear-gradient(180deg,#f59e0b,#ef4444)}
+.c[data-k="Important leads"]>.k::after{content:'⭐'}.g>.c:nth-child(6)::before{background:linear-gradient(180deg,#f59e0b,#ef4444)}
 </style><script>
 /* Download fix: defined first, so the older code below it is skipped */
 window.claude={use:async n=>n==='downloads'?{save:async({filename,data})=>{
@@ -189,6 +189,9 @@ window.claude=window.claude||{use:async n=>n==='downloads'?{save:async({filename
 <script>
 const CO={n:'ACME SWITCHGEARS',a:'107, Angappa Naicken Street, George Town, Chennai, Tamil Nadu – 600001',g:'33AASFA3221F1ZU',p:'+91-44-42061113 / 42061114 / 43851115',e:'acmeswitchgears@ymail.com'};
 const $=s=>document.querySelector(s);
+/* Declare the current-user state before any CRM functions can reference it. */
+let USERS=[],CU=null,SBS=null;
+function ME(){return CU?{u:CU.u,r:CU.r,eng:CU.r==='Engineer'}:{u:'',r:'',eng:true};}
 function ask(msg,cb){window._askCb=cb;$('#mo').innerHTML=`<div class="mo"><div class="mb" style="max-width:440px"><h3>Please confirm</h3><p>${msg}</p><p><button class="bd" onclick="askYes()">Yes, continue</button> <button class="b2" onclick="$('#mo').innerHTML=''">Cancel</button></p></div></div>`}
 function askYes(){const f=window._askCb;window._askCb=null;$('#mo').innerHTML='';if(f)f()}
 function toast(m){const t=document.createElement('div');t.textContent=m;t.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1b2433;color:#fff;padding:10px 16px;border-radius:8px;z-index:99;max-width:90vw';document.body.appendChild(t);setTimeout(()=>t.remove(),3200)}
@@ -213,7 +216,7 @@ const pad=n=>String(n).padStart(3,'0');
 const V={dash,leads:()=>list('leads','Leads & Enquiries',['company','contact','phone','req','src','status','follow','area','owner','imp'],LF,{follow:fd,status:tag,area:areaTag,imp:impTag}),customers:()=>list('customers','Customers',['name','contact','mobile','gstin','state','area','credit'],CF,{credit:inr,area:areaTag}),products,quotes,invoices};
 const AREAS=['Not set','CBE – Coimbatore','TM – Thirumudivakkam','TZ – Thiruvazhisai','TB – Tambaram','Amb – Ambattur','TML – Women’s SICO','ORA – Oragadam','GDY – Guindy','GPD – Gummidipoondi','SPR – Sriperumbudur','KLR – Kerala','PDY – Pondicherry','CGL – Chengalpattu','MM – Maraimalai Nagar','MWC – Mahindra World City','IRK – Irungattukottai','TRL – Thiruvallur'];
 var IMPO=false,AF='';
-const impTag=v=>v=='Yes'?'<span class="tag Follow-up"> Important</span>':'';
+const impTag=v=>v=='Yes'?'<span class="tag Follow-up">★ Important</span>':'';
 const areaTag=v=>(!v||v==='Not set')?'':e(v);
 const arx=a=>a&&a!=='Not set'?a:'';
 const UOPT=['Unassigned'];
@@ -222,7 +225,7 @@ const CF=[['name','Customer / company'],['contact','Contact person'],['mobile','
 const PF=[['code','Product code'],['name','Product name'],['brand','Brand',['LS Electric','Autonics','Delta','Kinco','Koino','Neptune','Bals','Polycab','Qlight','Schmersal','Schneider','Other']],['cat','Category',['VFD / Drives','HMI & Touch Screens','HMI with PLC','PLC & I/O Modules','Servo Drives','Servo Motors','Proximity Sensors','Photoelectric Sensors','Rotary Encoders','Temperature Controllers','Fiber Optic Sensors','Displacement Sensors','LIDAR Sensors','Relays','Industrial Switches','Fuses','Cable Lugs','Industrial Cables','DIN Rails','Automation Components']],['hsn','HSN'],['gst','GST %','number'],['buy','Purchase price','number'],['sell','Selling price','number'],['stock','Stock','number'],['min','Min stock','number'],['unit','Unit']];
 let cur='dash';
 function go(k){if(ME().eng&&(k==='settings'||k==='customers'))k='dash';if(k!==cur){IMPO=false;AF=''}cur=k;document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('on',a.dataset.k==k));$('#m').innerHTML='';V[k]()}
-const NAV=[['dash',' Dashboard'],['leads',' Leads'],['products',' Products'],['quotes',' Quotations'],['reports',' Reports'],['settings','⚙️ Settings']];
+const NAV=[['dash',' Dashboard'],['leads',' Leads'],['products','Products'],['quotes',' Quotations'],['reports','📈 Reports'],['settings','⚙️ Settings']];
 $('#nav').insertAdjacentHTML('beforeend',NAV.map(n=>`<a data-k="${n[0]}" onclick="go('${n[0]}')">${n[1]}</a>`).join(''));
 function dash(){const sales=S.invoices.reduce((a,i)=>a+calc(i.items,i.intra).grand,0),rec=S.invoices.reduce((a,i)=>a+paid(i),0);
 const T={Customers:'customers',Leads:'leads','Pending quotations':'quotes','Approved quotations':'quotes','Total sales':'invoices',Outstanding:'invoices',Products:'products','Low stock':'products','Important leads':'leads'};const card=(k,v)=>`<div class="c" data-k="${k}" style="cursor:pointer" onclick="go('${T[k]}')"><div class="k">${k}</div><div class="v">${v}</div></div>`;
@@ -521,9 +524,7 @@ if(applyNoHSN())sv();
 
 /* ===== LOGIN & ROLES (Supabase Auth) ===== */
 const SB_URL='https://nbkyfjfgpzwnabfeorkx.supabase.co',SB_KEY='sb_publishable_ilyGQd50WNvT4OgFaqlqwA_VPYjq1gm';
-let USERS=[],CU=null,SBS=null;
 const refreshUOPT=()=>UOPT.splice(0,UOPT.length,'Unassigned',...USERS.filter(u=>u.r==='Engineer').map(u=>u.u));
-const ME=()=>CU?{u:CU.u,r:CU.r,eng:CU.r==='Engineer'}:{u:'',r:'',eng:true};
 const VIS=k=>ME().eng&&(k==='leads'||k==='quotes')?S[k].filter(x=>x.owner===ME().u):S[k];
 const CE=k=>!ME().eng||k==='leads';
 const CD=()=>!ME().eng;
@@ -597,7 +598,7 @@ async function cmig(){if(ME().eng)return;try{const d=await new Promise((res,rej)
  toast(n+' catalog(s) moved to cloud');V.catalogs()}catch(x){toast('No old catalogs found in this browser')}}
 let CQ='',CL=[];const CB={};
 const csz=n=>n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';
-const cico=m=>{const x=(m.name.split('.').pop()||'').toLowerCase();return x=='pdf'?'':['xls','xlsx','csv'].includes(x)?'':['doc','docx'].includes(x)?'':['ppt','pptx'].includes(x)?'':['jpg','jpeg','png','webp'].includes(x)?'':['zip','rar'].includes(x)?'🗜️':'📄'};
+const cico=m=>{const x=(m.name.split('.').pop()||'').toLowerCase();return x=='pdf'?'':['xls','xlsx','csv'].includes(x)?'':['doc','docx'].includes(x)?'📘':['ppt','pptx'].includes(x)?'📙':['jpg','jpeg','png','webp'].includes(x)?'🖼️':['zip','rar'].includes(x)?'🗜️':'📄'};
 V.catalogs=async()=>{const adm=!ME().eng;
 $('#m').innerHTML=`<h2>Catalogs</h2><div class="bar"><input id="cq" placeholder="Search catalogs…" value="${e(CQ)}" oninput="CQ=this.value;crows()">${adm?'<button onclick="cup()">⬆ Upload catalog</button><button class="b2" onclick="cmig()">☁ Move old catalogs</button>':''}</div><div class="g cg" id="cl"></div><p class="k" id="cc"></p>`;
 try{CL=await CDB.list()}catch(x){CL=[];toast('Catalogs: '+x.message)}crows()};
