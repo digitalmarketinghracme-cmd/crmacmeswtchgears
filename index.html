@@ -197,7 +197,7 @@ function askYes(){const f=window._askCb;window._askCb=null;$('#mo').innerHTML=''
 function toast(m){const t=document.createElement('div');t.textContent=m;t.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1b2433;color:#fff;padding:10px 16px;border-radius:8px;z-index:99;max-width:90vw';document.body.appendChild(t);setTimeout(()=>t.remove(),3200)}
 const seed=()=>({seq:{q:0,i:0,c:0,p:0,l:0},customers:[],products:[],leads:[],quotes:[],invoices:[]});
 let S;try{S=JSON.parse(localStorage.getItem('acme'))}catch(e){}if(!S)S=seed();
-const sv=()=>{try{localStorage.setItem('acme',JSON.stringify(S))}catch(e){}if(typeof cloudPush==='function')cloudPush()};
+const sv=()=>{try{localStorage.setItem('acme',JSON.stringify(S))}catch(e){}try{if(typeof cloudPush==='function')cloudPush()}catch(e){}};
 const inr=n=>'₹'+(+n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fd=d=>d?d.split('-').reverse().join('-'):'';const today=()=>new Date().toISOString().slice(0,10);
 const e=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
